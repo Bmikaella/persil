@@ -1,0 +1,6 @@
+mpr -> stands for model, predictions, results; all of this is places in a directory named this way, after 'mpr' comes the name of the model, each model has a corresponding .ipynb 
+mpr_baseline1 -> simple model, very bad results, it has beedn scraped
+mpr_baseline_take2 -> simple model that works but please use the 'twin' version 
+mpr_baseline_take2 -> on bert we are using n kernels of convolution and that is that. It was named twin in hope that it can be run with the original because they are using too much memory but the simple %store command that python notebooks have isn't exactly sharing memory between processes, it only serializes the object and reads it back
+mpr_baseline2 -> is using one layer of attention 
+mpr_baseline3 -> is the same as baseline_take2_twin but it has one more added hidden layer and regularization 
