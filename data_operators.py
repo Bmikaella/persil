@@ -14,7 +14,7 @@ def unfold_comments(sentences, maximal_carpet_size, minimal_carpet_size=0):
     if(padd_size > 0):
         npad = [(0, padd_size), (0, 0)]
         carpet = np.pad(carpet, pad_width=npad, mode='constant', constant_values=0)
-    return (sentences[0][0], to.tensor(carpet))
+    return (sentences['author'].values[0], to.tensor(carpet))
 
 def get_balanced_data(input_df, output_df):
     positive_indices = [index for index, element in enumerate(output_df) if element == 1.0]
@@ -42,7 +42,8 @@ def chunks(l, n):
 
 
 class InputOutputFrame:
-    def __init__(self, input_location, output_location, folds_location, sentences_per_author, minimal_input_size=0, nrows=None):
+    def __init__(self, debugger, input_location, output_location, folds_location, sentences_per_author, minimal_input_size=0, nrows=None):
+        self. debugger = debugger
         data_df = pd.read_csv(input_location, nrows=nrows)
         self.folds_df = pd.read_csv(folds_location, usecols =['author', 'fold'])
         self.targets_info_df = pd.read_csv(output_location)
@@ -55,8 +56,11 @@ class InputOutputFrame:
         return self.input_df
 
     def get_input_output(self, referent_authors, target):
-        input_authors = self.targets_info_df[self.targets_info_df['author'].isin(referent_authors)]
-        output_targets = [author[target] for author in input_authors] 
+        input_authors_data = self.targets_info_df[self.targets_info_df['author'].isin(referent_authors)]
+        input_authors = input_authors_data['author'].values
+        output_targets = input_authors_data['introverted'].values
+        print(input_authors)
+        print(output_targets)
         return input_authors, output_targets
 
     def get_train_val_test_input_output(self, target, fold, validation_split, random_state):
@@ -73,8 +77,8 @@ class InputOutputFrame:
         assert len(val_input_authors) == len(val_output)
         return train_input_authors, train_output, val_input_authors, val_output, test_input_authors, test_output
 
-    def create_minibatches(self, data_X, data_y, minibatch_size, cuda_dev):
-        idx = range(len(data_X))
+    def create_minibatches(self, data_X, data_y, minibatch_size, cuda_dev, batch_operator):
+        idx = list(range(len(data_X)))
         random.shuffle(idx)
         for idx_list in chunks(idx, minibatch_size):
             data_X_authors = [data_X[index] for index in idx_list]
@@ -82,7 +86,8 @@ class InputOutputFrame:
             
             minibatch_X = [self.input_df[author] for author in data_X_authors]
             minibatch_X = rnnutils.pad_sequence(minibatch_X, batch_first=True, padding_value = 0) 
-            minibatch_X = minibatch_X.unsqueeze(1)
+            minibatch_X = batch_operator(minibatch_X)
+            # minibatch_X = minibatch_X.unsqueeze(1)
             minibatch_y = to.tensor(data_y_idx)
             if cuda_dev is not None:
                 minibatch_X = minibatch_X
@@ -100,7 +105,8 @@ class ModelPerformanceSaver:
     MODELS_META_DATA = ['hash_id']
     MODELS_IDENTIFIER_DATA = ['models_name', 'experiments_name', 'mbti_trait', 'fold', 'run_identificator']
     
-    def __init__(self, columns, id_columns, save_location, import_location=None):
+    def __init__(self, debugger, columns, id_columns, save_location, import_location=None):
+        self.debugger = debugger
         self.df = pd.DataFrame(data=None, columns=self.MODELS_IDENTIFIER_DATA+columns+self.MODELS_PREFORMANCE_COLUMNS+self.MODELS_META_DATA)
         self.id_columns = id_columns+self.MODELS_IDENTIFIER_DATA
         self.save_location = save_location

@@ -1,12 +1,12 @@
-from persil.helpers import *
-from persil.data_operators import *
-from persil.model_operator import * 
+from helpers import *
+from data_operators import *
+from model_operator import * 
 from itertools import product
-from persil.models import *
-from persil.regularization import * 
+from models import *
+from regularization import * 
 import torch as to
 from torch.optim.lr_scheduler import StepLR
-from persil.model_operator import apply
+from model_operator import apply
 
 RELATIVE_DIFFERENCE = 0.00001
 
@@ -17,8 +17,9 @@ class Experiment:
     REGULARIZATION = 'regularization_type'
     ALPHA = 'alpha'  
 
-    def __init__(self, output_directory, models_performance_saver, data_frame, experiments_name, models_name, run_identificator, folds, mbti_traits, optimization_parameters, print_status_batch, max_constant_f1, number_of_epochs,\
+    def __init__(self, debugger, output_directory, models_performance_saver, data_frame, experiments_name, models_name, run_identificator, folds, mbti_traits, optimization_parameters, print_status_batch, max_constant_f1, number_of_epochs,\
         decay_rate, decay_epoch, number_of_classes, validation_set_percentage, cuda_device_index=1, use_GPU=True, random_state=56):
+        self.debugger = debugger 
         self.output_directory = output_directory
         self.models_performance_saver = models_performance_saver
         self.data_frame = data_frame
@@ -35,7 +36,7 @@ class Experiment:
         self.number_of_classes = number_of_classes
         
         self.validation_set_percentage = validation_set_percentage 
-        self.cuda_device = to.device(cuda_device_index) if use_GPU else None
+        self.cuda_device = to.device(cuda_device_index) if use_GPU == 'True' else None
         self.random_state = random_state
         self.loss_function = nn.CrossEntropyLoss()
     
@@ -61,7 +62,7 @@ class Experiment:
                 model, models_identifier = self.get_the_best_model(target, fold, train_input_indices, train_output, val_input_indices, val_output)
                 
                 print(f'Apply best model to test for {target} on fold {fold}.')
-                test_loader = self.data_frame.create_minibatches(test_input_indices, test_output, 1, self.cuda_device)
+                test_loader = self.data_frame.create_minibatches(test_input_indices, test_output, 1, self.cuda_device, model.convert_input)
 
                 test_loss, test_logits, test_true = apply(model, self.loss_function, test_loader, self.cuda_device)
                 test_f1_score, test_precision_0, test_precision_1, test_precision_m, test_recall_0, test_recall_1, test_recall_m = calcMeasures(test_logits, test_true, 0.5)
@@ -109,7 +110,7 @@ class Experiment:
 
             
             model_operator.train()
-            self.data_frame.flush_data()
+            self.models_performance_saver.flush_data()
 
             current_models_properties = model_operator.get_best_models_properties()
             if (not best_models_properties or best_models_properties.val_f1_m < current_models_properties.val_f1_m):

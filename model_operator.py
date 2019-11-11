@@ -1,11 +1,12 @@
 import torch.nn as nn 
 import torch as to
 import time 
-from persil.data_operators import InputOutputFrame
-from persil.helpers import * 
+from data_operators import InputOutputFrame
+from helpers import * 
 from itertools import tee
-from persil.metrics import *
-from persil.experiment import RELATIVE_DIFFERENCE
+from metrics import *
+import experiment
+from collections import namedtuple
 
 ModelsProperties = namedtuple('ModelsProperties', 'state_dict optimizers_state_dict val_f1_m identifier')
        
@@ -61,7 +62,7 @@ class ModelOperator():
         last_f1 = 0
         f1_constant_counter = 0
         
-        val_loader = self.data_frame.create_minibatches(self.val_input_indices, self.val_output, self.batch_size, self.cuda_device)
+        val_loader = self.data_frame.create_minibatches(self.val_input_indices, self.val_output, self.batch_size, self.cuda_device, self.model.convert_input)
             
         for epoch in range(0, self.number_of_epochs):
             epoch_start = time.time()
@@ -72,7 +73,7 @@ class ModelOperator():
             predicted = []
             true_output = []
             
-            train_loader = self.data_frame.create_minibatches(self.train_input_indices, self.train_output, self.batch_size, self.cuda_device)
+            train_loader = self.data_frame.create_minibatches(self.train_input_indices, self.train_output, self.batch_size, self.cuda_device, self.model.convert_input)
             for inputs, labels in train_loader:
                 n_batch += 1
                 self.model.zero_grad()
@@ -106,7 +107,7 @@ class ModelOperator():
             print(f'precision: {val_precision_m:.7f} - recall: {val_recall_m:.7f} - MACRO')
             delimiter()
             
-            if (abs(val_f1_score - last_f1) <= RELATIVE_DIFFERENCE):
+            if (abs(val_f1_score - last_f1) <= experiment.RELATIVE_DIFFERENCE):
                 f1_constant_counter += 1
             else:
                 f1_constant_counter = 0
