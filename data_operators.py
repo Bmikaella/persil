@@ -65,7 +65,7 @@ class InputOutputFrame:
 
     def get_train_val_test_input_output(self, target, fold, validation_split, random_state):
 
-        valid_authors = sorted(list(self.targets_info_df[self.targets_info_df.introverted.notnull()]['author']))
+        valid_authors = sorted(list(self.targets_info_df[self.targets_info_df[target].notnull()]['author']))
         test_data_authors = self.folds_df[(self.folds_df['fold'] == fold) & (self.folds_df['author'].isin(valid_authors))]['author'].tolist()
         train_data_authors = self.folds_df[(self.folds_df['fold'] != fold) & (self.folds_df['author'].isin(valid_authors))]['author'].tolist()
         train_input_authors, train_output = self.get_input_output(train_data_authors, target)

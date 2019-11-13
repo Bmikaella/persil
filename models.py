@@ -36,9 +36,7 @@ class ConvoCarpet(nn.Module):
 class AttentiveCarpet(nn.Module):
     MODELS_NAME = 'attention_model'
 
-    KERNELS_COUNTS = 'kernels_count'
-    SENTENCES_COUTS = 'sentences_count'
-    HIDDEN_LAYER1 = 'hidden_layer_1'
+    CARPET_LENGTH = 'carpet_length'
 
     def __init__ (self, carpet_length, embedding_size=1024):
         super(AttentiveCarpet, self).__init__()
