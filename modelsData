@@ -1,11 +1,14 @@
 {
     "models_name" : "convo_carpet",
     "experiments_name" : "mbti_smth", 
-    "mbti_traits" : ["introverted"],
+    
+    "targets" : [["age"]],
+    "prediction_type": "classification",
+
     "folds" : [0],
     "run_identificator" : "test",
 
-    "debug" : "False",
+    "debug" : "True",
 
     "cuda_device" : 0,
     "use_GPU" : "True",
@@ -20,16 +23,16 @@
     "max_sentences_per_author" : 20000,
     "min_padding_per_author" : 10,
     "nrows" : 200,
+    "balance_data" : "False",
 
     "validation_set_percentage" : 0.2,
     
     "print_status_batch" : 100,
     "max_constant_f1" : 4,
-    "n_epochs" : 100,
+    "n_epochs" : 2,
 
     "decay_rate" : 0.9,
     "decay_epoch" : 100,
-    "number_of_classes" : 2,
     
     "optimization_params" : {
         "learning_rate" : [0.0001, 0.00005, 0.00001, 0.000005, 0.000001],

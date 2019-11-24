@@ -1,4 +1,13 @@
+from collections import namedtuple
+
+
 DELIMITER_COUNT = 25
+                
+SINGLE_TARGET = 'singletarget'
+MULTI_TARGET = 'multitarget'
+ONE_TARGET = 1
+
+RELATIVE_DIFFERENCE = 0.00001
 
 def get_checkpoints_name(output_directory, models_identifier):
     return f'{output_directory}save_{models_identifier}.pt'
@@ -19,4 +28,29 @@ def save_results(predictions, true_output, output_file):
     with open(output_file, 'w+') as f:
         for pre_l, true_l in zip(predictions, true_output):
             f.write(f'{pre_l.cpu()[0][0]}, {pre_l.cpu()[0][1]}, {true_l.cpu().tolist()[0]}\n')
-                
+
+# used to determine the type of task we are handling, so that we can know what kind of loss we will use 
+def determine_target_type(targets):
+    # we are only checking the first of n targets as we only support constatnt singletarget or multitarget runs in one experiment
+    if len(targets) == ONE_TARGET:
+        return SINGLE_TARGET
+    else:
+        return MULTI_TARGET
+    
+# used to determine the output of the model
+def determine_classes(data_frame, targets, targets_type):
+    if targets_type == SINGLE_TARGET:
+        return determine_singletarget_classes(data_frame, targets[0])
+    else: 
+        return determine_multitarget_classes(data_frame, targets)
+
+# these two are used to determine the arhitecture of the model, we need to know what is the ouput 
+def determine_singletarget_classes(data_frame, targets):
+    return len(data_frame.get_all_column_unique_values(targets[0]))
+
+def determine_multitarget_classes(data_frame, targets):
+    classes_count = []
+    for target in targets: 
+        classes_count.append(determine_singletarget_classes(data_frame, target))
+    return classes_count
+ 

@@ -7,10 +7,48 @@ from itertools import tee
 from metrics import *
 import experiment
 from collections import namedtuple
+from helpers import *
+from abc import ABC, abstractmethod 
+from statistics import mean
 
-ModelsProperties = namedtuple('ModelsProperties', 'state_dict optimizers_state_dict val_f1_m identifier')
+class ClassificationMetricsHandler():
+
+    def __init__ (self, models_performance_saver):
+        self.models_performance_saver = models_performance_saver
+
+    def update_test_results(self, models_identifier, test_results):
+        self.models_performance_saver.update_models_test_results(models_identifier, test_results)
+
+    def update_val_results(self, models_identifier, epoch, val_results):
+        self.models_performance_saver.update_models_val_results(models_identifier, epoch, val_results)
+
+    def print_val_results(self, epoch, time, val_loss, number_of_classes, train_results, val_results,):
+        train_f1_score = train_results['f1']
+        print(f'Epoch {epoch} end: {time}, TRAIN F1 is: {train_f1_score}')
+        print(f'Validation loss: {val_loss:.7f} - F1 score: {val_results["f1"]:.7f}')
+        if(number_of_classes == 2):
+            print(f'0 class -> precision: {val_results["precision_0"]:.7f} - recall: {val_results["recall_0"]:.7f}')
+            print(f'1 class -> precision: {val_results["precision_1"]:.7f} - recall: {val_results["recall_1"]:.7f}')
+        print(f'precision: {val_results["precision_macro"]:.7f} - recall: {val_results["recall_macro"]:.7f} - MACRO')
+        delimiter()
+
+    def print_test_results(self, test_loss, number_of_classes, test_results):
+        print(f'Test loss: {test_loss:.5f} - F1 score: {test_results["f1"]:.7f} ')
+        if(number_of_classes == 2):
+            print(f'0 class -> precision: {test_results["precision_0"]:.7f} - recall: {test_results["recall_0"]:.7f}')
+            print(f'1 class -> precision: {test_results["precision_1"]:.7f} - recall: {test_results["recall_1"]:.7f}')
+        print(f'precision: {test_results["precision_macro"]:.7f} - recall: {test_results["recall_macro"]:.7f} - MACRO')
+        delimiter()
+
+    def compare_new_results(self, old_values, new_values):
+        return old_values['f1'] < new_values['f1']
+
+    def check_for_stagnation(self, old_values, new_values):
+        return abs(old_values['f1'] - new_values['f1']) <= RELATIVE_DIFFERENCE
+ 
+ModelsProperties = namedtuple('ModelsProperties', 'state_dict optimizers_state_dict identifier')
        
-def apply(model, loss_function, data_loader, cuda_device):
+def apply(model, loss_function, data_loader, regularization, alpha, cuda_device):
     model.eval()
     total_loss = 0
     predicted = []
@@ -21,7 +59,7 @@ def apply(model, loss_function, data_loader, cuda_device):
         for inputs, labels in data_loader:
             n_batch += 1
             minibatch_logits = model(inputs.to(device=cuda_device, dtype=to.float))
-            minibatch_loss = loss_function(minibatch_logits, labels)
+            minibatch_loss = loss_calculator(minibatch_logits, labels, model.parameters(), loss_function, regularization, alpha)
             
             total_loss += minibatch_loss
             predicted.append(minibatch_logits)
@@ -29,10 +67,16 @@ def apply(model, loss_function, data_loader, cuda_device):
             
     return total_loss, predicted, true_output
 
+def loss_calculator(logits, labels, models_parameters, loss_function, regularization, alpha):
+    print(logits[0])
+    print (labels[0])
+    print(logits.cpu())
+    print (labels.cpu())
+    return loss_function(logits, labels) + regularization(models_parameters, alpha)
 
 class ModelOperator():
 
-    def __init__ (self, model, loss_function, optimizer, number_of_epochs, print_status_batch, cuda_device, regularization, exp_lr_scheduler,\
+    def __init__ (self, model, metrics_handler, loss_function, optimizer, number_of_epochs, print_status_batch, cuda_device, regularization, exp_lr_scheduler,\
          data_frame, batch_size, train_input_indices, train_output, val_input_indices, val_output, alpha, max_constant_f1, model_performance_saver, models_identifier):
         self.loss_function = loss_function
         self.number_of_epochs = number_of_epochs
@@ -49,18 +93,22 @@ class ModelOperator():
         self.exp_lr_scheduler = exp_lr_scheduler
         self.alpha = alpha
         self.batch_size = batch_size
+        self.metrics_handler = metrics_handler
         self.max_constant_f1 = max_constant_f1
 
         self.model = model
         self.models_identifier = models_identifier
 
         self.best_models_properties = None
+        self.best_models_results = None
 
+    def models_loss(self, logits, labels):
+        return loss_calculator(logits, labels, self.model.parameters(), self.loss_function, self.regularization, self.alpha)
+   
     def train(self):
-        best_f1_validation = 0
-
-        last_f1 = 0
-        f1_constant_counter = 0
+        self.best_models_results = None
+        old_results_val = None
+        results_constant = 0
         
         val_loader = self.data_frame.create_minibatches(self.val_input_indices, self.val_output, self.batch_size, self.cuda_device, self.model.convert_input)
             
@@ -80,7 +128,7 @@ class ModelOperator():
 
                 logits = self.model(inputs.to(device=self.cuda_device, dtype=to.float))
                     
-                minibatch_loss = self.loss_function(logits, labels) + self.regularization(self.model.parameters(), self.alpha)
+                minibatch_loss = self.models_loss(logits, labels)
                 total_loss += minibatch_loss
                 
                 minibatch_loss.backward()
@@ -96,33 +144,30 @@ class ModelOperator():
 
             self.exp_lr_scheduler.step()
             val_loader, val_loader_backup = tee(val_loader)
-            val_loss, val_logits, true_val = apply(self.model, self.loss_function, val_loader_backup, self.cuda_device)
-            val_f1_score, val_precision_0, val_precision_1, val_precision_m, val_recall_0, val_recall_1, val_recall_m = calcMeasures(val_logits, true_val, 0.5)
-            train_f1_score, _, _, _, _, _,_ = calcMeasures(predicted, true_output, 0.5)
+            val_loss, val_logits, true_val = apply(self.model, self.loss_function, val_loader_backup, self.regularization, self.alpha, self.cuda_device)
+
+            results_val = self.model.models_metrics(val_logits, true_val)
+
+            results_train = self.model.models_metrics(predicted, true_output)
             
-            print(f'Epoch {epoch} end: {time.time()-epoch_start}, TRAIN F1 is: {train_f1_score}')
-            print(f'Validation loss: {val_loss:.7f} - F1 score: {val_f1_score:.7f}')
-            print(f'0 class -> precision: {val_precision_0:.7f} - recall: {val_recall_0:.7f}')
-            print(f'1 class -> precision: {val_precision_1:.7f} - recall: {val_recall_1:.7f}')
-            print(f'precision: {val_precision_m:.7f} - recall: {val_recall_m:.7f} - MACRO')
-            delimiter()
-            
-            if (abs(val_f1_score - last_f1) <= experiment.RELATIVE_DIFFERENCE):
-                f1_constant_counter += 1
+            self.metrics_handler.print_val_results(epoch, time.time()-epoch_start, val_loss, self.model.number_of_classes, results_train, results_val)
+
+            if (old_results_val is not None and self.metrics_handler.check_for_stagnation(results_val, old_results_val)):
+                results_constant += 1
             else:
-                f1_constant_counter = 0
+                results_constant = 0
             
-            last_f1 = val_f1_score
+            old_results_val = results_val
             
-            if(f1_constant_counter >= self.max_constant_f1):
-                return self.best_models_properties
+            if(results_constant >= self.max_constant_f1):
+                return
         
-            if(best_f1_validation < val_f1_score):
-                best_f1_validation = val_f1_score
-                self.model_performance_saver.update_models_val_results(self.models_identifier, val_f1_score, val_precision_0, val_precision_1, val_precision_m, val_recall_0, val_precision_1, val_recall_m, epoch)
-                self.best_models_properties = ModelsProperties(self.model.state_dict(), self.optimizer.state_dict(), val_f1_score, self.models_identifier)
+            if(self.best_models_results is None or self.metrics_handler.compare_new_results(self.best_models_results, results_val)):
+                self.best_models_results = results_val
+                self.metrics_handler.update_val_results(self.models_identifier, epoch, results_val)
+                self.best_models_properties = ModelsProperties(self.model.state_dict(), self.optimizer.state_dict(), self.models_identifier)
     
     def get_best_models_properties(self):
-        return self.best_models_properties
+        return self.best_models_properties, self.best_models_results
 
  

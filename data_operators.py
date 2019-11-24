@@ -5,6 +5,8 @@ import torch as to
 import numpy as np
 from sklearn.model_selection import train_test_split
 import torch.nn.utils.rnn as rnnutils
+from metrics import * 
+from helpers import * 
 
 def unfold_comments(sentences, maximal_carpet_size, minimal_carpet_size=0):
     carpet = sentences[:maximal_carpet_size].as_matrix(columns=sentences.columns[1:1025])
@@ -40,14 +42,19 @@ def create_balanced_data(more_frequent, less_frequent, input_df, output_df):
 def chunks(l, n):
     return [l[i:i + n] for i in range(0, len(l), n)]  
 
+def convert_to_one_hot_enocoding(output_targets, number_of_classes, all_values_sorted):
+    positions = dict(zip(all_values_sorted, list(range(number_of_classes))))
+    print(f"Class to one hot encoding mapping: {positions}")
+    return [positions[element[0]] for element in output_targets]
 
 class InputOutputFrame:
+    BINARY_CLASSIFICATION = 2
+
     def __init__(self, debugger, input_location, output_location, folds_location, sentences_per_author, minimal_input_size=0, nrows=None):
         self. debugger = debugger
         data_df = pd.read_csv(input_location, nrows=nrows)
         self.folds_df = pd.read_csv(folds_location, usecols =['author', 'fold'])
         self.targets_info_df = pd.read_csv(output_location)
-
         self.input_df = dict(data_df.sort_values(by=['author', 'Unnamed: 0']).groupby(['author'])\
             .apply(lambda sentences : unfold_comments(sentences, sentences_per_author, minimal_input_size)).tolist())
         del data_df
@@ -55,21 +62,57 @@ class InputOutputFrame:
     def get_input_df(self):
         return self.input_df
 
-    def get_input_output(self, referent_authors, target):
+    def get_all_column_unique_values(self, column):
+        self.debugger.print(column)
+        return self.targets_info_df[column].dropna().unique()    
+
+    def get_input_output(self, referent_authors, target, number_of_classes, all_values_sorted):
         input_authors_data = self.targets_info_df[self.targets_info_df['author'].isin(referent_authors)]
         input_authors = input_authors_data['author'].values
-        output_targets = input_authors_data['introverted'].values
-        print(input_authors)
-        print(output_targets)
+        
+        output_targets = input_authors_data[target].values
+        
+        if(number_of_classes > self.BINARY_CLASSIFICATION):
+            output_targets = convert_to_one_hot_enocoding(output_targets, number_of_classes, all_values_sorted)
+
+        self.debugger.print(output_targets)
+        self.debugger.print(input_authors)
         return input_authors, output_targets
 
-    def get_train_val_test_input_output(self, target, fold, validation_split, random_state):
+    def singletarget_output_support(self, target, fold, random_state):
+        all_output_values = self.targets_info_df[target[0]].dropna().unique()
+        self.debugger.print(all_output_values)
 
-        valid_authors = sorted(list(self.targets_info_df[self.targets_info_df[target].notnull()]['author']))
+        number_of_classes = len(all_output_values)
+        self.debugger.print(f'Number of classes: {number_of_classes}')
+        
+        valid_authors = sorted(list(self.targets_info_df[self.targets_info_df[target[0]].notnull()]['author']))
+    
         test_data_authors = self.folds_df[(self.folds_df['fold'] == fold) & (self.folds_df['author'].isin(valid_authors))]['author'].tolist()
         train_data_authors = self.folds_df[(self.folds_df['fold'] != fold) & (self.folds_df['author'].isin(valid_authors))]['author'].tolist()
-        train_input_authors, train_output = self.get_input_output(train_data_authors, target)
-        test_input_authors, test_output = self.get_input_output(test_data_authors, target)
+
+        train_input_authors, train_output = self.get_input_output(train_data_authors, target, number_of_classes, all_output_values)
+        test_input_authors, test_output = self.get_input_output(test_data_authors, target, number_of_classes, all_output_values)
+
+        return train_input_authors, train_output, test_input_authors, test_output
+
+    def multitarget_output_resolution(self, target, fold, random_state):
+        train_input_authors, train_output, test_input_authors, test_output = set(), [], set(), []
+        for target_unit in target: 
+            train_input_authors_new, train_output_new, test_input_authors_new, test_output_new = self.singletarget_output_support(target_unit, fold, random_state)
+            
+            train_input_authors.update(train_input_authors_new)
+            train_output = train_output.append(train_output_new)
+            test_input_authors.update(test_input_authors_new)
+            test_output = test_output.append(test_output_new)
+
+        return train_input_authors, train_output, test_input_authors, test_output
+
+    def get_train_val_test_input_output(self, target, fold, validation_split, random_state, targets_type):
+        if targets_type == SINGLE_TARGET:
+            train_input_authors, train_output, test_input_authors, test_output = self.singletarget_output_support(target, fold, random_state)
+        else: 
+            train_input_authors, train_output, test_input_authors, test_output = self.multitarget_output_resolution(target, fold, random_state)
 
         train_input_authors, val_input_authors, train_output, val_output = train_test_split(train_input_authors, train_output, test_size=validation_split, random_state=random_state)
         assert len(train_input_authors) == len(train_output)
@@ -83,6 +126,7 @@ class InputOutputFrame:
         for idx_list in chunks(idx, minibatch_size):
             data_X_authors = [data_X[index] for index in idx_list]
             data_y_idx = [int(data_y[index]) for index in idx_list]
+            self.debugger.print(data_y_idx)
             
             minibatch_X = [self.input_df[author] for author in data_X_authors]
             minibatch_X = rnnutils.pad_sequence(minibatch_X, batch_first=True, padding_value = 0) 
@@ -95,9 +139,12 @@ class InputOutputFrame:
 
             yield((minibatch_X, minibatch_y))   
 
-
 class ModelPerformanceSaver:
-    MODELS_PREFORMANCE_COLUMNS = ['val_f1', 'val_precision_0', 'val_precision_1', 'val_precision_macro' ,\
+
+    MODELS_PREFORMANCE_COLUMNS_CLASSIFICATION_MULTICLASS = ['val_f1', 'val_precision_macro', 'val_recall_macro', \
+                              'test_f1','test_precision_macro', 'test_recall_macro', 'epoch']
+
+    MODELS_PREFORMANCE_COLUMNS_CLASSIFICATION_BINARY = ['val_f1', 'val_precision_0', 'val_precision_1', 'val_precision_macro' ,\
                               'val_recall_0', 'val_recall_1', 'val_recall_macro', \
                               'test_f1', 'test_precision_0', 'test_precision_1', 'test_precision_macro',\
                               'test_recall_0', 'test_recall_1', 'test_recall_macro',\
@@ -105,9 +152,13 @@ class ModelPerformanceSaver:
     MODELS_META_DATA = ['hash_id']
     MODELS_IDENTIFIER_DATA = ['models_name', 'experiments_name', 'mbti_trait', 'fold', 'run_identificator']
     
-    def __init__(self, debugger, columns, id_columns, save_location, import_location=None):
+    def __init__(self, debugger, columns, id_columns, save_location, number_of_classes, import_location=None):
         self.debugger = debugger
-        self.df = pd.DataFrame(data=None, columns=self.MODELS_IDENTIFIER_DATA+columns+self.MODELS_PREFORMANCE_COLUMNS+self.MODELS_META_DATA)
+        preformance_columns = self.MODELS_PREFORMANCE_COLUMNS_CLASSIFICATION_BINARY
+        if(number_of_classes > 2):
+            preformance_columns = self.MODELS_PREFORMANCE_COLUMNS_CLASSIFICATION_MULTICLASS
+
+        self.df = pd.DataFrame(data=None, columns=self.MODELS_IDENTIFIER_DATA+columns+preformance_columns+self.MODELS_META_DATA)
         self.id_columns = id_columns+self.MODELS_IDENTIFIER_DATA
         self.save_location = save_location
         if(import_location != None):
@@ -128,24 +179,27 @@ class ModelPerformanceSaver:
         self.df.at[entries_position, 'hash_id'] = identifier
         return identifier        
         
-    def update_models_val_results(self, models_identifier, val_f1, val_precision_0, val_precision_1, val_precision_m, val_recall_0, val_recall_1, val_recall_m, epoch):
-        self.df.loc[self.df['hash_id'] == models_identifier, 'val_f1'] = val_f1
-        self.df.loc[self.df['hash_id'] == models_identifier, 'val_precision_0'] = val_precision_0
-        self.df.loc[self.df['hash_id'] == models_identifier, 'val_precision_1'] = val_precision_1
-        self.df.loc[self.df['hash_id'] == models_identifier, 'val_precision_macro'] = val_precision_m
-        self.df.loc[self.df['hash_id'] == models_identifier, 'val_recall_0'] = val_recall_0
-        self.df.loc[self.df['hash_id'] == models_identifier, 'val_recall_1'] = val_recall_1
-        self.df.loc[self.df['hash_id'] == models_identifier, 'val_recall_macro'] = val_recall_m
+    def update_models_val_results(self, models_identifier, epoch, preformance_data):
         self.df.loc[self.df['hash_id'] == models_identifier, 'epoch'] = epoch
+        for label, value in preformance_data.items():
+            self.df.loc[self.df['hash_id'] == models_identifier, 'val_'+label] = value
+        # self.df.loc[self.df['hash_id'] == models_identifier, 'val_precision_0'] = val_precision_0
+        # self.df.loc[self.df['hash_id'] == models_identifier, 'val_precision_1'] = val_precision_1
+        # self.df.loc[self.df['hash_id'] == models_identifier, 'val_precision_macro'] = val_precision_m
+        # self.df.loc[self.df['hash_id'] == models_identifier, 'val_recall_0'] = val_recall_0
+        # self.df.loc[self.df['hash_id'] == models_identifier, 'val_recall_1'] = val_recall_1
+        # self.df.loc[self.df['hash_id'] == models_identifier, 'val_recall_macro'] = val_recall_m
    
-    def update_models_test_results(self, models_identifier, test_f1, test_precision_0, test_precision_1, test_precision_m, test_recall_0, test_recall_1, test_recall_m):
-        self.df.loc[self.df['hash_id'] == models_identifier, 'test_f1'] = test_f1
-        self.df.loc[self.df['hash_id'] == models_identifier, 'test_precision_0'] = test_precision_0
-        self.df.loc[self.df['hash_id'] == models_identifier, 'test_precision_1'] = test_precision_1
-        self.df.loc[self.df['hash_id'] == models_identifier, 'test_precision_macro'] = test_precision_m
-        self.df.loc[self.df['hash_id'] == models_identifier, 'test_recall_0'] = test_recall_0
-        self.df.loc[self.df['hash_id'] == models_identifier, 'test_recall_1'] = test_recall_1
-        self.df.loc[self.df['hash_id'] == models_identifier, 'test_recall_macro'] = test_recall_m
+    def update_models_test_results(self, models_identifier, preformance_data):
+        for label, value in preformance_data.items():
+            self.df.loc[self.df['hash_id'] == models_identifier, 'test_'+label] = value
+        # self.df.loc[self.df['hash_id'] == models_identifier, 'test_f1'] = test_f1
+        # self.df.loc[self.df['hash_id'] == models_identifier, 'test_precision_0'] = test_precision_0
+        # self.df.loc[self.df['hash_id'] == models_identifier, 'test_precision_1'] = test_precision_1
+        # self.df.loc[self.df['hash_id'] == models_identifier, 'test_precision_macro'] = test_precision_m
+        # self.df.loc[self.df['hash_id'] == models_identifier, 'test_recall_0'] = test_recall_0
+        # self.df.loc[self.df['hash_id'] == models_identifier, 'test_recall_1'] = test_recall_1
+        # self.df.loc[self.df['hash_id'] == models_identifier, 'test_recall_macro'] = test_recall_m
 
     def get_best_models_data(self, target, fold, run_identificator):
         return self.df.loc[self.df[(self.df.mbti_trait == target) & (self.df.fold == fold) & (self.df.run_identificator == run_identificator)]['val_f1'].idxmax()]
