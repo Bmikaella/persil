@@ -9,6 +9,10 @@ ONE_TARGET = 1
 
 RELATIVE_DIFFERENCE = 0.00001
 
+def get_optional(parameters, name):
+    value = parameters[name]
+    return None if value == "None" else value
+
 def get_checkpoints_name(output_directory, models_identifier):
     return f'{output_directory}save_{models_identifier}.pt'
 
@@ -18,8 +22,8 @@ def get_predictions_file_name(output_directory, models_identifier, target, fold,
 def get_output_directory_name(location, models_name):
     return  f'{location}mpr_{models_name}/'
 
-def get_results_file_name(location):
-    return f'{location}results.csv'
+def get_results_file_name(location, run_identificator):
+    return f'{location}results_{run_identificator}.csv'
 
 def delimiter():
     print('-'*DELIMITER_COUNT)

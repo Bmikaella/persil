@@ -2,46 +2,46 @@
     "models_name" : "convo_carpet",
     "experiments_name" : "mbti_smth", 
     
-    "targets" : [["age"]],
+    "targets" : [["introverted"]],
     "prediction_type": "classification",
 
     "folds" : [0],
-    "run_identificator" : "test",
+    "run_identificator" : "introverted_test1",
 
-    "debug" : "True",
+    "debug" : "False",
 
-    "cuda_device" : 0,
+    "cuda_device" : 1,
     "use_GPU" : "True",
     "random_state" : 56,
 
-    "output_directorys_location" : "/home/mibo/test/",
-    "results_import_location" : "/home/mibo/results_FINAL_all_traits.csv",
+    "output_directorys_location" : "/home/mbosnjak/PERO/",
+    "results_import_location" : "None",
     
-    "input_location" : "/home/mibo/Datasets/embedded_comments_last_100_min_20com_per_auth_w_wc_10_200_no_mbti.csv",
-    "folds_location" : "/home/mibo/test/folds",
-    "output_location" : "/home/mibo/Datasets/m9k/author_profiles.csv",
-    "max_sentences_per_author" : 20000,
+    "input_location" : "/home/mbosnjak/Datasets/embedded_comments_last_100_min_20com_per_auth_w_wc_10_200_no_mbti.csv",
+    "folds_location" : "/home/mbosnjak/Datasets/comments_last_100_min_20com_per_auth_w_wc_10_200.csv.folds.csv",
+    "output_location" : "/home/mbosnjak/Datasets/author_profiles.csv",
+    "max_sentences_per_author" : 200000,
     "min_padding_per_author" : 10,
-    "nrows" : 200,
+    "nrows" : "None",
     "balance_data" : "False",
 
     "validation_set_percentage" : 0.2,
     
     "print_status_batch" : 100,
     "max_constant_f1" : 4,
-    "n_epochs" : 2,
+    "n_epochs" : 100,
 
     "decay_rate" : 0.9,
     "decay_epoch" : 100,
     
     "optimization_params" : {
-        "learning_rate" : [0.0001, 0.00005, 0.00001, 0.000005, 0.000001],
+        "learning_rate" : [0.000005],
         "batch_size" : [64], 
         "kernels_count" : [12],
-        "sentences_count" : [6], 
-        "hidden_layer_1": [10, 20],
-        "alpha": [0.3, 0.27, 0.17, 0.08, 0.009, 0.0005, 0.00003], 
-        "regularization_type" : ["L1", "L2", "None"]
+        "sentences_count" : [4], 
+        "hidden_layer_1": [20],
+        "alpha": [0.0278], 
+        "regularization_type" : ["L2"]
     }
 
 }

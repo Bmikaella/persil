@@ -57,11 +57,12 @@ def main(location):
     if(not os.path.isdir(output_directory)):
         os.makedirs(output_directory)
 
+    nrows = get_optional(models_data, NUMBER_OF_ROWS)
     data_frame = InputOutputFrame(debugger, models_data[INPUT_LOCATION], models_data[OUTPUT_LOCATION], models_data[FOLDS_LOCATION], \
-        models_data[MAX_SENTENCES_PER_AUTHOR], models_data[MIN_PADDING_PER_AUTHOR], nrows=models_data[NUMBER_OF_ROWS])
+        models_data[MAX_SENTENCES_PER_AUTHOR], models_data[MIN_PADDING_PER_AUTHOR], nrows=nrows)
 
     print("Starting the experiments.")
-    experiment = Experiment(debugger, output_directory, models_data[RESULTS_IMPORT_LOCATION], data_frame, models_data[BALANCE_DATA], models_data[EXPERIMENTS_NAME], models_name,\
+    experiment = Experiment(debugger, output_directory,get_optional(models_data,RESULTS_IMPORT_LOCATION), data_frame, models_data[BALANCE_DATA], models_data[EXPERIMENTS_NAME], models_name,\
          models_data[RUN_IDENTIFICATOR], models_data[FOLDS], models_data[PREDICTION_TYPE], models_data[TARGETS], models_data[OPTIMIZATION_PARAMETERS],\
              models_data[PRINT_BATCH_STATUS], models_data[MAX_CONSTANT_F1], models_data[NUMBER_OF_EPOCHS], models_data[DECAY_RATE], models_data[DECAY_EPOCH],\
              models_data[VALIDATION_SET_PERCENTAGE], models_data[CUDA_DEVICE], models_data[USE_GPU], models_data[RANDOM_STATE])

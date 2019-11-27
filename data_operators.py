@@ -45,7 +45,7 @@ def chunks(l, n):
 def convert_to_one_hot_enocoding(output_targets, number_of_classes, all_values_sorted):
     positions = dict(zip(all_values_sorted, list(range(number_of_classes))))
     print(f"Class to one hot encoding mapping: {positions}")
-    return [positions[element[0]] for element in output_targets]
+    return [positions[element] for element in output_targets]
 
 class InputOutputFrame:
     BINARY_CLASSIFICATION = 2
@@ -57,6 +57,7 @@ class InputOutputFrame:
         self.targets_info_df = pd.read_csv(output_location)
         self.input_df = dict(data_df.sort_values(by=['author', 'Unnamed: 0']).groupby(['author'])\
             .apply(lambda sentences : unfold_comments(sentences, sentences_per_author, minimal_input_size)).tolist())
+        self.present_authors = self.input_df.keys()
         del data_df
 
     def get_input_df(self):
@@ -80,14 +81,17 @@ class InputOutputFrame:
         return input_authors, output_targets
 
     def singletarget_output_support(self, target, fold, random_state):
-        all_output_values = self.targets_info_df[target[0]].dropna().unique()
+        all_output_values = self.targets_info_df[target].dropna().unique()
         self.debugger.print(all_output_values)
 
         number_of_classes = len(all_output_values)
-        self.debugger.print(f'Number of classes: {number_of_classes}')
+        self.debugger.print(f'Number of classes: {number_of_classes} for target {target}')
         
-        valid_authors = sorted(list(self.targets_info_df[self.targets_info_df[target[0]].notnull()]['author']))
-    
+        valid_authors = sorted(list(self.targets_info_df[self.targets_info_df[target].notnull() & self.targets_info_df['author'].isin(self.present_authors)]['author']))
+        
+        self.debugger.print('Not null authors:')
+        self.debugger.print(valid_authors)
+
         test_data_authors = self.folds_df[(self.folds_df['fold'] == fold) & (self.folds_df['author'].isin(valid_authors))]['author'].tolist()
         train_data_authors = self.folds_df[(self.folds_df['fold'] != fold) & (self.folds_df['author'].isin(valid_authors))]['author'].tolist()
 
@@ -110,7 +114,7 @@ class InputOutputFrame:
 
     def get_train_val_test_input_output(self, target, fold, validation_split, random_state, targets_type):
         if targets_type == SINGLE_TARGET:
-            train_input_authors, train_output, test_input_authors, test_output = self.singletarget_output_support(target, fold, random_state)
+            train_input_authors, train_output, test_input_authors, test_output = self.singletarget_output_support(target[0], fold, random_state)
         else: 
             train_input_authors, train_output, test_input_authors, test_output = self.multitarget_output_resolution(target, fold, random_state)
 
@@ -127,6 +131,10 @@ class InputOutputFrame:
             data_X_authors = [data_X[index] for index in idx_list]
             data_y_idx = [int(data_y[index]) for index in idx_list]
             self.debugger.print(data_y_idx)
+            self.debugger.print(self.input_df.keys())
+            self.debugger.print(data_X_authors)
+            self.debugger.print(len(data_X_authors))
+            self.debugger.print(len(data_y_idx))
             
             minibatch_X = [self.input_df[author] for author in data_X_authors]
             minibatch_X = rnnutils.pad_sequence(minibatch_X, batch_first=True, padding_value = 0) 
@@ -150,7 +158,7 @@ class ModelPerformanceSaver:
                               'test_recall_0', 'test_recall_1', 'test_recall_macro',\
                               'epoch']
     MODELS_META_DATA = ['hash_id']
-    MODELS_IDENTIFIER_DATA = ['models_name', 'experiments_name', 'mbti_trait', 'fold', 'run_identificator']
+    MODELS_IDENTIFIER_DATA = ['models_name', 'experiments_name', 'trait', 'fold', 'run_identificator']
     
     def __init__(self, debugger, columns, id_columns, save_location, number_of_classes, import_location=None):
         self.debugger = debugger
@@ -168,10 +176,10 @@ class ModelPerformanceSaver:
         identifier = hashlib.md5(''.join([str(x) for x in self.df[self.id_columns].iloc[index]]).encode('utf-8')).hexdigest()
         return identifier
 
-    def create_new_entry(self, experiments_name, models_name, mbti_trait, fold, run_identificator, column_values):
+    def create_new_entry(self, experiments_name, models_name, trait, fold, run_identificator, column_values):
         new_entry_values = {}
         new_entry_values.update(column_values)
-        new_entry_values.update({'hash_id': 'DUMMY_VALUE', 'experiments_name': experiments_name, 'models_name' : models_name, 'mbti_trait' : mbti_trait,\
+        new_entry_values.update({'hash_id': 'DUMMY_VALUE', 'experiments_name': experiments_name, 'models_name' : models_name, 'trait' : trait,\
              'fold' : fold, 'run_identificator' : run_identificator})
         self.df = self.df.append(new_entry_values, ignore_index=True)
         entries_position = len(self.df)-1

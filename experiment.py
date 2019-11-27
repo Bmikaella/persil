@@ -44,7 +44,7 @@ class Experiment:
 
         
         self.models_performance_saver = ModelPerformanceSaver(debugger, columns=list(optimization_parameters.keys()), \
-            id_columns=list(optimization_parameters.keys()), save_location=get_results_file_name(output_directory), \
+            id_columns=list(optimization_parameters.keys()), save_location=get_results_file_name(output_directory, run_identificator), \
             number_of_classes=self.number_of_classes, import_location=old_results_location)
             
         self.metrics_handler = ClassificationMetricsHandler(self.models_performance_saver)
@@ -79,7 +79,7 @@ class Experiment:
 
                 regularization = get_regularization(parameters_dict[self.REGULARIZATION])
                 alpha = parameters_dict[self.ALPHA]
-                test_loss, test_logits, test_true = apply(model, self.loss_function, test_loader, regularization, alpha, self.cuda_device)
+                test_loss, test_logits, test_true = apply(self.debugger, model, self.loss_function, test_loader, regularization, alpha, self.cuda_device)
                 
                 results = model.models_metrics(test_logits, test_true)
 
@@ -114,7 +114,7 @@ class Experiment:
             
             models_identifier = self.models_performance_saver.create_new_entry(self.experiments_name, self.models_name, target, fold, self.run_identificator, parameters_dict)
             
-            model = get_model(self.models_name, self.targets_type, self.number_of_classes, parameters_dict)
+            model = get_model(self.debugger, self.models_name, self.targets_type, self.number_of_classes, parameters_dict)
             if self.cuda_device:
                 model.to(self.cuda_device)
 
@@ -122,7 +122,7 @@ class Experiment:
             exp_lr_scheduler = StepLR(optimizer, step_size=self.decay_epoch, gamma=self.decay_rate)
             regularization = get_regularization(parameters_dict[self.REGULARIZATION])
 
-            model_operator = ModelOperator(model, self.metrics_handler, self.loss_function, optimizer, self.number_of_epochs, self.print_status_batch, self.cuda_device,\
+            model_operator = ModelOperator(self.debugger, model, self.metrics_handler, self.loss_function, optimizer, self.number_of_epochs, self.print_status_batch, self.cuda_device,\
                 regularization, exp_lr_scheduler, self.data_frame, parameters_dict[self.BATCH_SIZE], train_indices, train_output, val_indices, val_output,\
                     parameters_dict[self.ALPHA], self.max_constant_f1, self.models_performance_saver, models_identifier)
 

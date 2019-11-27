@@ -5,7 +5,7 @@ from sklearn.metrics import precision_score
 from sklearn.metrics import classification_report, r2_score, mean_squared_error
 from scipy.stats import pearsonr
 
-def calculate_classification_metrics_singletarget(total_logits, total_true, number_of_classes, threshold):
+def calculate_classification_metrics_singletarget(debugger, total_logits, total_true, number_of_classes, threshold):
     if(number_of_classes == 2):
         total_preds = []
         for minibatch_logits in total_logits:
@@ -13,8 +13,8 @@ def calculate_classification_metrics_singletarget(total_logits, total_true, numb
             total_preds.append(minibatch_preds)
         total_preds = to.cat(total_preds)
         total_true = to.cat(total_true)
-        print(total_preds)
-        print(total_true)
+        debugger.print(total_preds)
+        debugger.print(total_true)
         results = {}
         F1 = f1_score(total_true.cpu(), total_preds.cpu(), pos_label = 1, average='macro')
         results['f1'] = F1
@@ -38,8 +38,8 @@ def calculate_classification_metrics_singletarget(total_logits, total_true, numb
             total_preds.append(minibatch_preds)
         total_preds = to.cat(total_preds)
         total_true = to.cat(total_true)
-        print(total_preds)
-        print(total_true)
+        debugger.print(total_preds)
+        debugger.print(total_true)
         results = {}
         F1 = f1_score(total_true.cpu(), total_preds.cpu(), average='macro')
         results['f1'] = F1
@@ -47,14 +47,14 @@ def calculate_classification_metrics_singletarget(total_logits, total_true, numb
         results['precision_macro'] = precision_m
         recall_m = recall_score(total_true.cpu(), total_preds.cpu(), average='macro')
         results['recall_macro'] = recall_m
-        print(F1)
-        print(precision_m)
-        print(recall_m)
+        debugger.print(F1)
+        debugger.print(precision_m)
+        debugger.print(recall_m)
         return results
         
 
 
-def calculate_classification_metrics_multitarget(total_logits, total_true, number_of_classes):
+def calculate_classification_metrics_multitarget(debugger, total_logits, total_true, number_of_classes):
     pass
 # TODO 
     # total_preds = []

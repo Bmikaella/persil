@@ -48,7 +48,7 @@ class ClassificationMetricsHandler():
  
 ModelsProperties = namedtuple('ModelsProperties', 'state_dict optimizers_state_dict identifier')
        
-def apply(model, loss_function, data_loader, regularization, alpha, cuda_device):
+def apply(debugger, model, loss_function, data_loader, regularization, alpha, cuda_device):
     model.eval()
     total_loss = 0
     predicted = []
@@ -59,7 +59,7 @@ def apply(model, loss_function, data_loader, regularization, alpha, cuda_device)
         for inputs, labels in data_loader:
             n_batch += 1
             minibatch_logits = model(inputs.to(device=cuda_device, dtype=to.float))
-            minibatch_loss = loss_calculator(minibatch_logits, labels, model.parameters(), loss_function, regularization, alpha)
+            minibatch_loss = loss_calculator(debugger, minibatch_logits, labels, model.parameters(), loss_function, regularization, alpha)
             
             total_loss += minibatch_loss
             predicted.append(minibatch_logits)
@@ -67,17 +67,18 @@ def apply(model, loss_function, data_loader, regularization, alpha, cuda_device)
             
     return total_loss, predicted, true_output
 
-def loss_calculator(logits, labels, models_parameters, loss_function, regularization, alpha):
-    print(logits[0])
-    print (labels[0])
-    print(logits.cpu())
-    print (labels.cpu())
+def loss_calculator(debugger, logits, labels, models_parameters, loss_function, regularization, alpha):
+    debugger.print(logits[0])
+    debugger.print (labels[0])
+    debugger.print(logits.cpu())
+    debugger.print (labels.cpu())
     return loss_function(logits, labels) + regularization(models_parameters, alpha)
 
 class ModelOperator():
 
-    def __init__ (self, model, metrics_handler, loss_function, optimizer, number_of_epochs, print_status_batch, cuda_device, regularization, exp_lr_scheduler,\
+    def __init__ (self, debugger, model, metrics_handler, loss_function, optimizer, number_of_epochs, print_status_batch, cuda_device, regularization, exp_lr_scheduler,\
          data_frame, batch_size, train_input_indices, train_output, val_input_indices, val_output, alpha, max_constant_f1, model_performance_saver, models_identifier):
+        self.debugger = debugger
         self.loss_function = loss_function
         self.number_of_epochs = number_of_epochs
         self.print_status_batch = print_status_batch
@@ -103,7 +104,7 @@ class ModelOperator():
         self.best_models_results = None
 
     def models_loss(self, logits, labels):
-        return loss_calculator(logits, labels, self.model.parameters(), self.loss_function, self.regularization, self.alpha)
+        return loss_calculator(self.debugger, logits, labels, self.model.parameters(), self.loss_function, self.regularization, self.alpha)
    
     def train(self):
         self.best_models_results = None
@@ -144,7 +145,7 @@ class ModelOperator():
 
             self.exp_lr_scheduler.step()
             val_loader, val_loader_backup = tee(val_loader)
-            val_loss, val_logits, true_val = apply(self.model, self.loss_function, val_loader_backup, self.regularization, self.alpha, self.cuda_device)
+            val_loss, val_logits, true_val = apply(self.debugger, self.model, self.loss_function, val_loader_backup, self.regularization, self.alpha, self.cuda_device)
 
             results_val = self.model.models_metrics(val_logits, true_val)
 
