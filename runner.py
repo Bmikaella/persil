@@ -43,9 +43,6 @@ DECAY_EPOCH = "decay_epoch"
 
 DEBUG_STATUS = 'debug'
 
-CLASSIFICATION = 'classification'
-REGRESSION = 'regression'
-
 def main(location):
     print(f'Parsing the {location} to obtain model and parameters.')
     models_data = json.load(open(location, 'r'))

@@ -1,8 +1,11 @@
 from collections import namedtuple
+from metrics import *
 
 
 DELIMITER_COUNT = 25
-                
+
+CLASSIFICATION = 'classification'
+REGRESSION = 'regression'
 SINGLE_TARGET = 'singletarget'
 MULTI_TARGET = 'multitarget'
 ONE_TARGET = 1
@@ -28,10 +31,17 @@ def get_results_file_name(location, run_identificator):
 def delimiter():
     print('-'*DELIMITER_COUNT)
 
-def save_results(predictions, true_output, output_file):
-    with open(output_file, 'w+') as f:
-        for pre_l, true_l in zip(predictions, true_output):
-            f.write(f'{pre_l.cpu()[0][0]}, {pre_l.cpu()[0][1]}, {true_l.cpu().tolist()[0]}\n')
+def save_results(predictions, true_output, output_file, prediction_type):
+    # TODO fix for multitask
+    if(prediction_type == 'classification'):
+        with open(output_file, 'w+') as f:
+            for pre_l, true_l in zip(predictions, true_output):
+                f.write(f'{pre_l.cpu()[0][0]}, {pre_l.cpu()[0][1]}, {true_l.cpu().tolist()[0]}\n')
+    elif(prediction_type == 'regression'):
+        with open(output_file, 'w+') as f:
+            for pre_l, true_l in zip(predictions, true_output):
+                f.write(f'{pre_l.cpu()[0][0]}, {true_l.cpu().tolist()[0][0]}\n')
+
 
 # used to determine the type of task we are handling, so that we can know what kind of loss we will use 
 def determine_target_type(targets):
@@ -42,7 +52,9 @@ def determine_target_type(targets):
         return MULTI_TARGET
     
 # used to determine the output of the model
-def determine_classes(data_frame, targets, targets_type):
+def determine_classes(data_frame, targets, targets_type, prediction_type):
+    if(prediction_type == REGRESSION):
+        return 1
     if targets_type == SINGLE_TARGET:
         return determine_singletarget_classes(data_frame, targets[0])
     else: 

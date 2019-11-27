@@ -1,12 +1,12 @@
 {
     "models_name" : "convo_carpet",
-    "experiments_name" : "mbti_smth", 
+    "experiments_name" : "age_as_regression", 
     
-    "targets" : [["introverted"]],
-    "prediction_type": "classification",
+    "targets" : [["age"]],
+    "prediction_type": "regression",
 
     "folds" : [0],
-    "run_identificator" : "introverted_test1",
+    "run_identificator" : "age_test4",
 
     "debug" : "False",
 
@@ -29,17 +29,17 @@
     
     "print_status_batch" : 100,
     "max_constant_f1" : 4,
-    "n_epochs" : 100,
+    "n_epochs" : 1000,
 
     "decay_rate" : 0.9,
     "decay_epoch" : 100,
     
     "optimization_params" : {
-        "learning_rate" : [0.000005],
+        "learning_rate" : [0.0001, 0.00001, 0.000001],
         "batch_size" : [64], 
-        "kernels_count" : [12],
+        "kernels_count" : [8, 12],
         "sentences_count" : [4], 
-        "hidden_layer_1": [20],
+        "hidden_layer_1": [2, 4],
         "alpha": [0.0278], 
         "regularization_type" : ["L2"]
     }

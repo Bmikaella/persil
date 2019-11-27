@@ -7,8 +7,8 @@ from regularization import *
 import torch as to
 from torch.optim.lr_scheduler import StepLR
 from model_operator import *
-import time 
-
+import time
+from metrics import *
 
 class Experiment:
 
@@ -33,23 +33,35 @@ class Experiment:
         self.folds = folds 
         self.targets = targets
         self.targets_type = determine_target_type(targets[0])
-        self.debugger.print(self.targets_type)
+    
         
         self.experiments_name = experiments_name
         self.models_name = models_name 
         self.run_identificator = run_identificator  
         
         self.optimization_parameters = optimization_parameters 
-        self.number_of_classes = determine_classes(data_frame, targets, self.targets_type)
+        self.number_of_classes = determine_classes(data_frame, targets, self.targets_type, prediction_type)
 
-        
+        self.prediction_type = prediction_type
+
         self.models_performance_saver = ModelPerformanceSaver(debugger, columns=list(optimization_parameters.keys()), \
             id_columns=list(optimization_parameters.keys()), save_location=get_results_file_name(output_directory, run_identificator), \
-            number_of_classes=self.number_of_classes, import_location=old_results_location)
-            
-        self.metrics_handler = ClassificationMetricsHandler(self.models_performance_saver)
-        self.loss_function = nn.CrossEntropyLoss()
+            number_of_classes=self.number_of_classes, prediction_type=prediction_type, import_location=old_results_location)
+        
+        if (prediction_type == CLASSIFICATION):
+            self.debugger.print(f"Usli smo u klasifikaciju a trazili smo {prediction_type}")
+            self.metrics_handler = ClassificationMetricsHandler(self.debugger, self.models_performance_saver, self.number_of_classes)
+        elif (prediction_type == REGRESSION):
+            self.debugger.print(f"Usli smo u regresiju a trazili smo {prediction_type}")
+            self.metrics_handler = RegressionMetricsHandler(self.debugger, self.models_performance_saver)
+        else: 
+            raise Exception(f"Please check tag 'prediction_type' as value {prediction_type} is not supported")
 
+        if (prediction_type == CLASSIFICATION):
+            self.loss_function = nn.CrossEntropyLoss()
+        elif (prediction_type == REGRESSION):
+            self.loss_function = nn.MSELoss()
+        
         self.decay_rate = decay_rate
         self.decay_epoch = decay_epoch
         
@@ -69,7 +81,7 @@ class Experiment:
                 delimiter()
 
                 train_input_indices, train_output, val_input_indices, val_output, test_input_indices, test_output = self.data_frame.\
-                    get_train_val_test_input_output(target, fold, self.validation_set_percentage, self.random_state, self.targets_type)
+                    get_train_val_test_input_output(target, fold, self.validation_set_percentage, self.random_state, self.targets_type, self.prediction_type)
         
 
                 model, models_identifier, parameters_dict = self.get_the_best_model(target, fold, train_input_indices, train_output, val_input_indices, val_output)
@@ -84,9 +96,9 @@ class Experiment:
                 results = model.models_metrics(test_logits, test_true)
 
                 self.metrics_handler.update_test_results(models_identifier, results)
-                self.metrics_handler.print_test_results(test_loss, self.number_of_classes, results)
+                self.metrics_handler.print_test_results(test_loss, results)
 
-                helpers.save_results(test_logits, test_true, helpers.get_predictions_file_name(self.output_directory, models_identifier, target, fold, self.run_identificator))        
+                helpers.save_results(test_logits, test_true, helpers.get_predictions_file_name(self.output_directory, models_identifier, target, fold, self.run_identificator), self.prediction_type)        
                 self.models_performance_saver.flush_data()
                 
                 print(f"+++ Finished with training and testing model for {target} on fold {fold}. +++")
@@ -114,7 +126,7 @@ class Experiment:
             
             models_identifier = self.models_performance_saver.create_new_entry(self.experiments_name, self.models_name, target, fold, self.run_identificator, parameters_dict)
             
-            model = get_model(self.debugger, self.models_name, self.targets_type, self.number_of_classes, parameters_dict)
+            model = get_model(self.debugger, self.models_name, self.targets_type, self.prediction_type, self.number_of_classes, parameters_dict)
             if self.cuda_device:
                 model.to(self.cuda_device)
 
@@ -131,7 +143,7 @@ class Experiment:
             self.models_performance_saver.flush_data()
 
             current_models_properties, current_models_results = model_operator.get_best_models_properties()
-            if (best_models_properties is None or best_models_results['f1'] < current_models_results['f1']):
+            if (best_models_properties is None or self.metrics_handler.compare_new_results(best_models_results, current_models_results)):
                 best_models_properties = current_models_properties
                 best_models_results = current_models_results
                 best_models_parameters = parameters_dict

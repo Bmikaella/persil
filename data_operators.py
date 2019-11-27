@@ -67,20 +67,20 @@ class InputOutputFrame:
         self.debugger.print(column)
         return self.targets_info_df[column].dropna().unique()    
 
-    def get_input_output(self, referent_authors, target, number_of_classes, all_values_sorted):
+    def get_input_output(self, referent_authors, target, number_of_classes, all_values_sorted, prediction_type):
         input_authors_data = self.targets_info_df[self.targets_info_df['author'].isin(referent_authors)]
         input_authors = input_authors_data['author'].values
         
-        output_targets = input_authors_data[target].values
+        output_targets = input_authors_data[target].apply(lambda x : [float (x)] if prediction_type == REGRESSION else int(x)).values
         
-        if(number_of_classes > self.BINARY_CLASSIFICATION):
+        if(prediction_type == CLASSIFICATION and number_of_classes > self.BINARY_CLASSIFICATION):
             output_targets = convert_to_one_hot_enocoding(output_targets, number_of_classes, all_values_sorted)
 
-        self.debugger.print(output_targets)
+        self.debugger.print(f"Outputs: {output_targets}")
         self.debugger.print(input_authors)
         return input_authors, output_targets
 
-    def singletarget_output_support(self, target, fold, random_state):
+    def singletarget_output_support(self, target, fold, prediction_type, random_state):
         all_output_values = self.targets_info_df[target].dropna().unique()
         self.debugger.print(all_output_values)
 
@@ -95,15 +95,15 @@ class InputOutputFrame:
         test_data_authors = self.folds_df[(self.folds_df['fold'] == fold) & (self.folds_df['author'].isin(valid_authors))]['author'].tolist()
         train_data_authors = self.folds_df[(self.folds_df['fold'] != fold) & (self.folds_df['author'].isin(valid_authors))]['author'].tolist()
 
-        train_input_authors, train_output = self.get_input_output(train_data_authors, target, number_of_classes, all_output_values)
-        test_input_authors, test_output = self.get_input_output(test_data_authors, target, number_of_classes, all_output_values)
+        train_input_authors, train_output = self.get_input_output(train_data_authors, target, number_of_classes, all_output_values, prediction_type)
+        test_input_authors, test_output = self.get_input_output(test_data_authors, target, number_of_classes, all_output_values, prediction_type)
 
         return train_input_authors, train_output, test_input_authors, test_output
 
-    def multitarget_output_resolution(self, target, fold, random_state):
+    def multitarget_output_resolution(self, target, fold, prediction_type, random_state):
         train_input_authors, train_output, test_input_authors, test_output = set(), [], set(), []
         for target_unit in target: 
-            train_input_authors_new, train_output_new, test_input_authors_new, test_output_new = self.singletarget_output_support(target_unit, fold, random_state)
+            train_input_authors_new, train_output_new, test_input_authors_new, test_output_new = self.singletarget_output_support(target_unit, fold, prediction_type, random_state)
             
             train_input_authors.update(train_input_authors_new)
             train_output = train_output.append(train_output_new)
@@ -112,16 +112,20 @@ class InputOutputFrame:
 
         return train_input_authors, train_output, test_input_authors, test_output
 
-    def get_train_val_test_input_output(self, target, fold, validation_split, random_state, targets_type):
+    def get_train_val_test_input_output(self, target, fold, validation_split, random_state, targets_type, prediction_type):
         if targets_type == SINGLE_TARGET:
-            train_input_authors, train_output, test_input_authors, test_output = self.singletarget_output_support(target[0], fold, random_state)
+            train_input_authors, train_output, test_input_authors, test_output = self.singletarget_output_support(target[0], fold, prediction_type, random_state)
         else: 
-            train_input_authors, train_output, test_input_authors, test_output = self.multitarget_output_resolution(target, fold, random_state)
+            train_input_authors, train_output, test_input_authors, test_output = self.multitarget_output_resolution(target, fold, prediction_type, random_state)
 
         train_input_authors, val_input_authors, train_output, val_output = train_test_split(train_input_authors, train_output, test_size=validation_split, random_state=random_state)
         assert len(train_input_authors) == len(train_output)
         assert len(test_input_authors) == len(test_output)
         assert len(val_input_authors) == len(val_output)
+        print(f"Train size: {len(train_input_authors)}")
+        print(f"Validation size: {len(val_input_authors)}")
+        print(f"Test size: {len(test_input_authors)}")
+        delimiter()
         return train_input_authors, train_output, val_input_authors, val_output, test_input_authors, test_output
 
     def create_minibatches(self, data_X, data_y, minibatch_size, cuda_dev, batch_operator):
@@ -129,7 +133,7 @@ class InputOutputFrame:
         random.shuffle(idx)
         for idx_list in chunks(idx, minibatch_size):
             data_X_authors = [data_X[index] for index in idx_list]
-            data_y_idx = [int(data_y[index]) for index in idx_list]
+            data_y_idx = [data_y[index] for index in idx_list]
             self.debugger.print(data_y_idx)
             self.debugger.print(self.input_df.keys())
             self.debugger.print(data_X_authors)
@@ -143,11 +147,14 @@ class InputOutputFrame:
             minibatch_y = to.tensor(data_y_idx)
             if cuda_dev is not None:
                 minibatch_X = minibatch_X
-                minibatch_y = minibatch_y.to(device=cuda_dev, dtype=to.long)
+                minibatch_y = minibatch_y.to(device=cuda_dev)
 
             yield((minibatch_X, minibatch_y))   
 
 class ModelPerformanceSaver:
+
+    MODELS_PREFORMANCE_COLUMNS_REGRESSION = ['val_mse', 'val_pearson', 'val_r2_score', \
+                              'test_mse','test_pearson', 'test_r2_score', 'epoch']
 
     MODELS_PREFORMANCE_COLUMNS_CLASSIFICATION_MULTICLASS = ['val_f1', 'val_precision_macro', 'val_recall_macro', \
                               'test_f1','test_precision_macro', 'test_recall_macro', 'epoch']
@@ -160,11 +167,16 @@ class ModelPerformanceSaver:
     MODELS_META_DATA = ['hash_id']
     MODELS_IDENTIFIER_DATA = ['models_name', 'experiments_name', 'trait', 'fold', 'run_identificator']
     
-    def __init__(self, debugger, columns, id_columns, save_location, number_of_classes, import_location=None):
+    def __init__(self, debugger, columns, id_columns, save_location, number_of_classes, prediction_type, import_location=None):
         self.debugger = debugger
-        preformance_columns = self.MODELS_PREFORMANCE_COLUMNS_CLASSIFICATION_BINARY
-        if(number_of_classes > 2):
-            preformance_columns = self.MODELS_PREFORMANCE_COLUMNS_CLASSIFICATION_MULTICLASS
+
+        preformance_columns = None
+        if(prediction_type == CLASSIFICATION):
+            preformance_columns = self.MODELS_PREFORMANCE_COLUMNS_CLASSIFICATION_BINARY
+            if(number_of_classes > 2):
+                preformance_columns = self.MODELS_PREFORMANCE_COLUMNS_CLASSIFICATION_MULTICLASS
+        elif(prediction_type == REGRESSION):
+            preformance_columns = self.MODELS_PREFORMANCE_COLUMNS_REGRESSION
 
         self.df = pd.DataFrame(data=None, columns=self.MODELS_IDENTIFIER_DATA+columns+preformance_columns+self.MODELS_META_DATA)
         self.id_columns = id_columns+self.MODELS_IDENTIFIER_DATA
@@ -190,24 +202,13 @@ class ModelPerformanceSaver:
     def update_models_val_results(self, models_identifier, epoch, preformance_data):
         self.df.loc[self.df['hash_id'] == models_identifier, 'epoch'] = epoch
         for label, value in preformance_data.items():
+            self.debugger.print(f"Updating validation for label {label} with value {value}")
             self.df.loc[self.df['hash_id'] == models_identifier, 'val_'+label] = value
-        # self.df.loc[self.df['hash_id'] == models_identifier, 'val_precision_0'] = val_precision_0
-        # self.df.loc[self.df['hash_id'] == models_identifier, 'val_precision_1'] = val_precision_1
-        # self.df.loc[self.df['hash_id'] == models_identifier, 'val_precision_macro'] = val_precision_m
-        # self.df.loc[self.df['hash_id'] == models_identifier, 'val_recall_0'] = val_recall_0
-        # self.df.loc[self.df['hash_id'] == models_identifier, 'val_recall_1'] = val_recall_1
-        # self.df.loc[self.df['hash_id'] == models_identifier, 'val_recall_macro'] = val_recall_m
    
     def update_models_test_results(self, models_identifier, preformance_data):
         for label, value in preformance_data.items():
+            self.debugger.print(f"Updating test for label {label} with value {value}")
             self.df.loc[self.df['hash_id'] == models_identifier, 'test_'+label] = value
-        # self.df.loc[self.df['hash_id'] == models_identifier, 'test_f1'] = test_f1
-        # self.df.loc[self.df['hash_id'] == models_identifier, 'test_precision_0'] = test_precision_0
-        # self.df.loc[self.df['hash_id'] == models_identifier, 'test_precision_1'] = test_precision_1
-        # self.df.loc[self.df['hash_id'] == models_identifier, 'test_precision_macro'] = test_precision_m
-        # self.df.loc[self.df['hash_id'] == models_identifier, 'test_recall_0'] = test_recall_0
-        # self.df.loc[self.df['hash_id'] == models_identifier, 'test_recall_1'] = test_recall_1
-        # self.df.loc[self.df['hash_id'] == models_identifier, 'test_recall_macro'] = test_recall_m
 
     def get_best_models_data(self, target, fold, run_identificator):
         return self.df.loc[self.df[(self.df.mbti_trait == target) & (self.df.fold == fold) & (self.df.run_identificator == run_identificator)]['val_f1'].idxmax()]
