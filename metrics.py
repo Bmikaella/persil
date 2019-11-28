@@ -41,7 +41,7 @@ class ClassificationMetricsHandler():
         return old_values['f1'] < new_values['f1']
 
     def check_for_stagnation(self, old_values, new_values):
-        return abs(old_values['f1'] - new_values['f1']) <= RELATIVE_DIFFERENCE
+        return abs(old_values['f1'] - new_values['f1']) <= RELATIVE_DIFFERENCE or (old_values['f1'] > new_values['f1'])
 
 class RegressionMetricsHandler():
 
@@ -70,11 +70,10 @@ class RegressionMetricsHandler():
         delimiter()
 
     def compare_new_results(self, old_values, new_values):
-        return old_values['mse'] < new_values['mse']
+        return old_values['mse'] > new_values['mse']
 
     def check_for_stagnation(self, old_values, new_values):
-        return abs(old_values['mse'] - new_values['mse']) <= RELATIVE_DIFFERENCE
- 
+        return (abs(old_values['mse'] - new_values['mse']) <= RELATIVE_DIFFERENCE) or (old_values['mse'] < new_values['mse'])
 
 def calculate_classification_metrics_singletarget(debugger, total_logits, total_true, number_of_classes, threshold):
     if(number_of_classes == 2):
