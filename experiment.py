@@ -60,7 +60,7 @@ class Experiment:
         if (prediction_type == CLASSIFICATION):
             self.loss_function = nn.CrossEntropyLoss()
         elif (prediction_type == REGRESSION):
-            self.loss_function = nn.MSELoss()
+            self.loss_function = nn.MSELoss(reduction='sum')
         
         self.decay_rate = decay_rate
         self.decay_epoch = decay_epoch

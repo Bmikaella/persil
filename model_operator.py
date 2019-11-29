@@ -76,7 +76,7 @@ class ModelOperator():
    
     def train(self):
         self.best_models_results = None
-        old_results_val = None
+        
         results_constant = 0
         
         val_loader = self.data_frame.create_minibatches(self.val_input_indices, self.val_output, self.batch_size, self.cuda_device, self.model.convert_input)
@@ -121,12 +121,10 @@ class ModelOperator():
             
             self.metrics_handler.print_val_results(epoch, time.time()-epoch_start, val_loss, results_train, results_val)
 
-            if (old_results_val is not None and self.metrics_handler.check_for_stagnation(results_val, old_results_val)):
+            if (self.best_models_results is not None and self.metrics_handler.check_for_stagnation(self.best_models_results, results_val)):
                 results_constant += 1
             else:
                 results_constant = 0
-            
-            old_results_val = results_val
             
             if(results_constant >= self.max_constant_f1):
                 return
@@ -138,5 +136,4 @@ class ModelOperator():
     
     def get_best_models_properties(self):
         return self.best_models_properties, self.best_models_results
-
- 
+        

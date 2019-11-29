@@ -10,7 +10,7 @@ from helpers import *
 
 def unfold_comments(sentences, maximal_carpet_size, minimal_carpet_size=0):
     carpet = sentences[:maximal_carpet_size].as_matrix(columns=sentences.columns[1:1025])
-    sentences_count = min(len(sentences), maximal_carpet_size) 
+    sentences_count = min(len(sentences), maximal_carpet_size)
     
     padd_size = minimal_carpet_size - sentences_count
     if(padd_size > 0):
