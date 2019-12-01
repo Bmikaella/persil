@@ -43,26 +43,28 @@ DECAY_EPOCH = "decay_epoch"
 
 DEBUG_STATUS = 'debug'
 
-def main(location):
-    print(f'Parsing the {location} to obtain model and parameters.')
-    models_data = json.load(open(location, 'r'))
-    debugger = Debugger(models_data[DEBUG_STATUS])
+def main(experiment_meta_data, data_info):
+    print(f'Parsing the {experiment_meta_data} to obtain model and parameters.')
+    experiments_data = json.load(open(experiment_meta_data, 'r'))
+    dataset_meta = json.load(open(data_info, 'r'))
+    debugger = Debugger(experiments_data[DEBUG_STATUS])
 
-    print(models_data)
-    models_name = models_data[MODELS_NAME]
-    output_directory = get_output_directory_name(models_data[OUTPUT_DIRECTORYS_LOCATION], models_name)    
+    print(experiments_data)
+    print(dataset_meta)
+
+    data_frame = InputOutputFrame(debugger, dataset_meta[INPUT_LOCATION], dataset_meta[OUTPUT_LOCATION], dataset_meta[FOLDS_LOCATION], \
+        dataset_meta[MAX_SENTENCES_PER_AUTHOR], dataset_meta[MIN_PADDING_PER_AUTHOR], nrows=get_optional(dataset_meta, NUMBER_OF_ROWS))
+
+    models_name = experiments_data[MODELS_NAME]
+    output_directory = get_output_directory_name(experiments_data[OUTPUT_DIRECTORYS_LOCATION], models_name)    
     if(not os.path.isdir(output_directory)):
         os.makedirs(output_directory)
 
-    nrows = get_optional(models_data, NUMBER_OF_ROWS)
-    data_frame = InputOutputFrame(debugger, models_data[INPUT_LOCATION], models_data[OUTPUT_LOCATION], models_data[FOLDS_LOCATION], \
-        models_data[MAX_SENTENCES_PER_AUTHOR], models_data[MIN_PADDING_PER_AUTHOR], nrows=nrows)
-
     print("Starting the experiments.")
-    experiment = Experiment(debugger, output_directory,get_optional(models_data,RESULTS_IMPORT_LOCATION), data_frame, models_data[BALANCE_DATA], models_data[EXPERIMENTS_NAME], models_name,\
-         models_data[RUN_IDENTIFICATOR], models_data[FOLDS], models_data[PREDICTION_TYPE], models_data[TARGETS], models_data[OPTIMIZATION_PARAMETERS],\
-             models_data[PRINT_BATCH_STATUS], models_data[MAX_CONSTANT_F1], models_data[NUMBER_OF_EPOCHS], models_data[DECAY_RATE], models_data[DECAY_EPOCH],\
-             models_data[VALIDATION_SET_PERCENTAGE], models_data[CUDA_DEVICE], models_data[USE_GPU], models_data[RANDOM_STATE])
+    experiment = Experiment(debugger, output_directory,get_optional(experiments_data,RESULTS_IMPORT_LOCATION), data_frame, experiments_data[BALANCE_DATA], experiments_data[EXPERIMENTS_NAME], models_name,\
+         experiments_data[RUN_IDENTIFICATOR], experiments_data[FOLDS], experiments_data[PREDICTION_TYPE], experiments_data[TARGETS], experiments_data[OPTIMIZATION_PARAMETERS],\
+             experiments_data[PRINT_BATCH_STATUS], experiments_data[MAX_CONSTANT_F1], experiments_data[NUMBER_OF_EPOCHS], experiments_data[DECAY_RATE], experiments_data[DECAY_EPOCH],\
+             experiments_data[VALIDATION_SET_PERCENTAGE], experiments_data[CUDA_DEVICE], experiments_data[USE_GPU], experiments_data[RANDOM_STATE])
 
     experiment.start()
     print("Experiment finished!")
@@ -78,6 +80,7 @@ def main(location):
 
 if __name__ == "__main__":
     parser=argparse.ArgumentParser()
-    parser.add_argument('--info-location', help='File in which is the models name and parameters that define this experiment')
+    parser.add_argument('--data-info', help='File in which is the models data is described')
+    parser.add_argument('--experiment-meta-data', help='File in which is the models name and parameters that define this experiment')
     args=parser.parse_args()
-    main(args.info_location)
+    main(args.experiment_meta_data, args.data_info)

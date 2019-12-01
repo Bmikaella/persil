@@ -1,0 +1,10 @@
+{
+
+    "input_location" : "/home/mbosnjak/Datasets/embedded_comments_last_100_min_20com_per_auth_w_wc_10_200_no_mbti.csv",
+    "folds_location" : "/home/mbosnjak/Datasets/folds.csv",
+    "output_location" : "/home/mbosnjak/Datasets/author_profiles.csv",
+    "max_sentences_per_author" : 100000,
+    "min_padding_per_author" : 16,
+    "nrows" : 100
+
+}

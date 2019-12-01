@@ -7,15 +7,17 @@ from sklearn.model_selection import train_test_split
 import torch.nn.utils.rnn as rnnutils
 from metrics import * 
 from helpers import * 
+import pdb
 
 def unfold_comments(sentences, maximal_carpet_size, minimal_carpet_size=0):
     carpet = sentences[:maximal_carpet_size].as_matrix(columns=sentences.columns[1:1025])
     sentences_count = min(len(sentences), maximal_carpet_size)
-    
     padd_size = minimal_carpet_size - sentences_count
+
     if(padd_size > 0):
         npad = [(0, padd_size), (0, 0)]
         carpet = np.pad(carpet, pad_width=npad, mode='constant', constant_values=0)
+        
     return (sentences['author'].values[0], to.tensor(carpet))
 
 def get_balanced_data(input_df, output_df):
@@ -53,7 +55,8 @@ class InputOutputFrame:
     def __init__(self, debugger, input_location, output_location, folds_location, sentences_per_author, minimal_input_size=0, nrows=None):
         self. debugger = debugger
         data_df = pd.read_csv(input_location, nrows=nrows)
-        self.folds_df = pd.read_csv(folds_location, usecols =['author', 'fold'])
+        print(folds_location)
+        self.folds_df = pd.read_csv(folds_location, usecols =['author', 'trait', 'fold'])
         self.targets_info_df = pd.read_csv(output_location)
         self.input_df = dict(data_df.sort_values(by=['author', 'Unnamed: 0']).groupby(['author'])\
             .apply(lambda sentences : unfold_comments(sentences, sentences_per_author, minimal_input_size)).tolist())
@@ -92,8 +95,11 @@ class InputOutputFrame:
         self.debugger.print('Not null authors:')
         self.debugger.print(valid_authors)
 
-        test_data_authors = self.folds_df[(self.folds_df['fold'] == fold) & (self.folds_df['author'].isin(valid_authors))]['author'].tolist()
-        train_data_authors = self.folds_df[(self.folds_df['fold'] != fold) & (self.folds_df['author'].isin(valid_authors))]['author'].tolist()
+        test_data_authors = self.folds_df[(self.folds_df['fold'] == fold) & (self.folds_df['trait'] == target) & (self.folds_df['author'].isin(valid_authors))]['author'].tolist()
+        train_data_authors = self.folds_df[(self.folds_df['fold'] != fold) & (self.folds_df['trait'] == target) & (self.folds_df['author'].isin(valid_authors))]['author'].tolist()
+
+        # test_data_authors = self.folds_df[(self.folds_df['fold'] == fold) & (self.folds_df['author'].isin(valid_authors))]['author'].tolist()
+        # train_data_authors = self.folds_df[(self.folds_df['fold'] != fold) & (self.folds_df['author'].isin(valid_authors))]['author'].tolist()
 
         train_input_authors, train_output = self.get_input_output(train_data_authors, target, number_of_classes, all_output_values, prediction_type)
         test_input_authors, test_output = self.get_input_output(test_data_authors, target, number_of_classes, all_output_values, prediction_type)

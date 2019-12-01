@@ -2,7 +2,7 @@ import torch.nn as nn
 import torch.nn.functional as func
 from helpers import *
 from metrics import *
-from functools import reduce
+import pdb
 
 CONVO_CARPET_NAME = 'convo_carpet'
 CONVO_CARPET_DEEP_NAME = 'convo_carpet_deep'
@@ -31,49 +31,56 @@ def get_model(debugger, models_name, targets_type, prediction_type, number_of_cl
             raise Exception(f'{models_name} model is not implemented for multitarget')
     raise Exception(f'{models_name} model is not implemented ')
 
-def get_activation_function(debugger, name_of_function):
+def get_activation_function(name_of_function):
     if(name_of_function == 'tanh'):
         return nn.Tanh()
     elif(name_of_function == 'sig'):
         return nn.Sigmoid()
     elif(name_of_function == 'relu'):
         return nn.ReLU()
-    elif(name_of_function == 'mine'):
-        return 
     else:
         raise Exception(f"Function {name_of_function} is not supported as an activation function")
 
 
+def get_linear_layer(inputs, outputs, activation_function, dropout):
+    return nn.Sequential(nn.Linear(inputs, outputs), get_activation_function(activation_function),\
+        nn.Dropout(p=dropout))
+
 class ConvoCarpetDeep(nn.Module):
 
     def __init__ (self, debugger, prediction_type, number_of_classes, embedding_size=1024, kernels_count=64, sentences_count=2, \
-    hidden_layers=[10], act_func='sig', dropout=0.5):
+    hidden_layers=[10, 10, 10], act_func='sig', dropout=0.5):
         super(ConvoCarpetDeep, self).__init__()
         self.debugger = debugger
+
         self.prediction_type = prediction_type
         self.number_of_classes = number_of_classes
         self.conv_layer = nn.Conv2d(1, kernels_count, [sentences_count, embedding_size])
         self.pool_layer = nn.AdaptiveMaxPool2d((1, None))
-        self.activation_function = act_func
-        self.dropout = nn.Dropout(p=dropout)
-        self.hidden_layers = []
-        for no_neurons in hidden_layers:
-            self.hidden_layers.append(nn.Linear(kernels_count, hidden_layer_1))
-        else:
-            self.fc_layer2 = nn.Linear(no_neurons, number_of_classes)
+
+        self.fc_layer1 = get_linear_layer(kernels_count, hidden_layers[0], act_func, dropout)
+        self.fc_layer2 = get_linear_layer(hidden_layers[0], hidden_layers[1], act_func, dropout)
+        self.fc_layer3 = get_linear_layer(hidden_layers[1], hidden_layers[2], act_func, dropout)
+        
+        self.fc_layer4 = nn.Linear(hidden_layers[2], number_of_classes)
         self.softmax = nn.Softmax(dim=1)
 
     def forward(self, input_batch):
         conv_output = func.relu(self.conv_layer(input_batch))
+        
         maxpool_output = self.pool_layer(conv_output)
         maxpool_output = maxpool_output.flatten(start_dim=1)
-        nn_deep_path = [maxpool_output] + self.hidden_layers
-        hidden_layers_output = reduce(lambda last, hidden_layer : self.dropout(self.activation_function(hidden_layer(last))), nn_deep_path)
-        linear_output2 = self.fc_layer2(hidden_layers_output)
+        
+        last_output = self.fc_layer1(maxpool_output)
+        last_output = self.fc_layer2(last_output)
+        last_output = self.fc_layer3(last_output)
+
+        last_output = self.fc_layer4(last_output)
+
         if(self.prediction_type == CLASSIFICATION):
-            return self.softmax(linear_output2)
+            return self.softmax(last_output)
         elif(self.prediction_type == REGRESSION):
-            return linear_output2
+            return last_output
         else: 
             raise Exception("No such type for prediction")
 

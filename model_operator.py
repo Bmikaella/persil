@@ -94,7 +94,7 @@ class ModelOperator():
             for inputs, labels in train_loader:
                 n_batch += 1
                 self.model.zero_grad()
-
+                
                 logits = self.model(inputs.to(device=self.cuda_device, dtype=to.float))
                     
                 minibatch_loss = self.models_loss(logits, labels)
