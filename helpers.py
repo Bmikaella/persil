@@ -1,5 +1,4 @@
 from collections import namedtuple
-from metrics import *
 
 
 DELIMITER_COUNT = 25
