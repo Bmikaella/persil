@@ -1,4 +1,5 @@
 from collections import namedtuple
+import pdb
 
 
 DELIMITER_COUNT = 25
@@ -53,6 +54,8 @@ def determine_target_type(targets):
 # used to determine the output of the model
 def determine_classes(data_frame, targets, targets_type, prediction_type):
     if(prediction_type == REGRESSION):
+        if targets_type == MULTI_TARGET:
+            return [1] * len(targets[0])
         return 1
     if targets_type == SINGLE_TARGET:
         return determine_singletarget_classes(data_frame, targets[0])

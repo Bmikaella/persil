@@ -9,6 +9,7 @@ from torch.optim.lr_scheduler import StepLR
 from model_operator import *
 import time
 from metrics import *
+import pdb
 
 class Experiment:
 
@@ -33,7 +34,6 @@ class Experiment:
         self.folds = folds 
         self.targets = targets
         self.targets_type = determine_target_type(targets[0])
-    
         
         self.experiments_name = experiments_name
         self.models_name = models_name 
@@ -46,25 +46,34 @@ class Experiment:
 
         self.models_performance_saver = ModelPerformanceSaver(debugger, columns=list(optimization_parameters.keys()), \
             id_columns=list(optimization_parameters.keys()), save_location=get_results_file_name(output_directory, run_identificator), \
-            number_of_classes=self.number_of_classes, prediction_type=prediction_type, import_location=old_results_location)
+            number_of_classes=self.number_of_classes, prediction_type=prediction_type, targets=targets[0], import_location=old_results_location)
         
         if (prediction_type == CLASSIFICATION):
-            self.debugger.print(f"Usli smo u klasifikaciju a trazili smo {prediction_type}")
-            self.metrics_handler = ClassificationMetricsHandler(self.debugger, self.models_performance_saver, self.number_of_classes)
+            if(self.targets_type == SINGLE_TARGET):
+                self.debugger.print(f"Usli smo u klasifikaciju a trazili smo {prediction_type}")
+                self.metrics_handler = ClassificationMetricsHandler(self.debugger, self.models_performance_saver, self.number_of_classes)
+            elif(self.targets_type == MULTI_TARGET):
+                raise Exception("Grrrrr haos aaaaa")
+            else:
+                raise Exception("A nes si gadno sjebo")
         elif (prediction_type == REGRESSION):
             self.debugger.print(f"Usli smo u regresiju a trazili smo {prediction_type}")
-            self.metrics_handler = RegressionMetricsHandler(self.debugger, self.models_performance_saver)
+            if(self.targets_type == SINGLE_TARGET):
+                self.metrics_handler = RegressionMetricsHandler(self.debugger, self.models_performance_saver)
+            elif(self.targets_type == MULTI_TARGET):
+                self.metrics_handler = RegressionMultitargetMetricsHandler(self.debugger, self.models_performance_saver)
+            else:
+                raise Exception("A nes si gadno sjebo")
         else: 
             raise Exception(f"Please check tag 'prediction_type' as value {prediction_type} is not supported")
 
         if (prediction_type == CLASSIFICATION):
             self.loss_function = nn.CrossEntropyLoss()
         elif (prediction_type == REGRESSION):
-            self.loss_function = nn.MSELoss(reduction='sum')
+            self.loss_function = nn.MSELoss()
         
         self.decay_rate = decay_rate
         self.decay_epoch = decay_epoch
-        
         
         self.cuda_device = to.device(cuda_device_index) if use_GPU == 'True' else None
     

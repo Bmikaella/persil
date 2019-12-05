@@ -4,7 +4,7 @@
     "folds_location" : "/home/mbosnjak/Datasets/folds.csv",
     "output_location" : "/home/mbosnjak/Datasets/author_profiles.csv",
     "max_sentences_per_author" : 100000,
-    "min_padding_per_author" : 16,
-    "nrows" : 100
+    "min_padding_per_author" : 20,
+    "nrows" : 1000
 
 }

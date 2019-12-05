@@ -1,0 +1,41 @@
+{
+    "models_name" : "convo_carpet_deep1",
+    "experiments_name" : "big5_as_regression_max_pool_sliced", 
+    
+    "targets" : [["agreeableness"], ["openness"], ["conscientiousness"], ["extraversion"], ["neuroticism"]],
+    "prediction_type": "regression",
+
+    "folds" : [0],
+    "run_identificator" : "big5_test1",
+
+    "debug" : "False",
+
+    "cuda_device" : 1,
+    "use_GPU" : "True",
+    "random_state" : 73,
+
+    "output_directorys_location" : "/home/mbosnjak/PERO/",
+    "results_import_location" : "None",
+    "balance_data" : "False",
+
+    "validation_set_percentage" : 0.2,
+    
+    "print_status_batch" : 100,
+    "max_constant_f1" : 6,
+    "n_epochs" : 200,
+
+    "decay_rate" : 0.9,
+    "decay_epoch" : 100,
+    
+    "optimization_params" : {
+        "learning_rate" : [0.005, 0.0005, 0.001, 0.0001, 0.00005],
+        "act_func" : ["leaky", "sig"],
+        "batch_size" : [32], 
+        "kernels_count" : [8, 12, 16, 20],
+        "sentences_count" : [1, 2, 3], 
+        "hidden_layer_1": [4, 6, 12],
+        "alpha": [0], 
+        "regularization_type" : ["None"]
+    }
+
+}

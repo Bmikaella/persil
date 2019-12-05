@@ -5,6 +5,7 @@ from sklearn.metrics import precision_score
 from sklearn.metrics import classification_report, r2_score, mean_squared_error
 from scipy.stats import pearsonr
 from helpers import *
+import pdb
 
 class ClassificationMetricsHandler():
 
@@ -19,7 +20,7 @@ class ClassificationMetricsHandler():
     def update_val_results(self, models_identifier, epoch, val_results):
         self.models_performance_saver.update_models_val_results(models_identifier, epoch, val_results)
 
-    def print_val_results(self, epoch, time, val_loss, train_results, val_results,):
+    def print_val_results(self, epoch, time, val_loss, train_results, val_results):
         train_f1_score = train_results['f1']
         print(f'Epoch {epoch} end: {time}, TRAIN F1 is: {train_f1_score}')
         print(f'Validation loss: {val_loss:.7f} - F1 score: {val_results["f1"]:.7f}')
@@ -69,6 +70,38 @@ class RegressionMetricsHandler():
         print(f'Test r2_score is: {test_results["r2_score"]}')
         delimiter()
 
+    def compare_new_results(self, old_values, new_values):
+        return old_values['mse'] > new_values['mse']
+
+    def check_for_stagnation(self, old_values, new_values):
+        return (abs(old_values['mse'] - new_values['mse']) <= RELATIVE_DIFFERENCE) or (old_values['mse'] < new_values['mse'])
+
+class RegressionMultitargetMetricsHandler():
+
+    def __init__(self, debugger, models_performance_saver):
+        self.debugger = debugger
+        self.models_performance_saver = models_performance_saver
+
+    def update_test_results(self, models_identifier, test_results):
+        self.models_performance_saver.update_models_test_results(models_identifier, test_results)
+
+    def update_val_results(self, models_identifier, epoch, val_results):
+        self.models_performance_saver.update_models_val_results(models_identifier, epoch, val_results)
+
+    def print_val_results(self, epoch, time, val_loss, train_results, val_results,):
+        self.debugger.print(train_results)
+        print(f'Epoch {epoch} end: {time}, TRAIN MSE is: {train_results["mse"]}')
+        print(f'Validation loss: {val_loss:.7f} - MSE score: {val_results["mse"]:.7f}')
+        print(f'Validation pearson is: {val_results["pearson"]}')
+        print(f'Validation r2_score is: {val_results["r2_score"]}')
+        delimiter()
+
+    def print_test_results(self, test_loss, test_results):
+        print(f'Test loss: {test_loss:.5f} - MSE score: {test_results["mse"]:.7f} ')
+        print(f'Test pearson is: {test_results["pearson"]}')
+        print(f'Test r2_score is: {test_results["r2_score"]}')
+        delimiter()
+    
     def compare_new_results(self, old_values, new_values):
         return old_values['mse'] > new_values['mse']
 
@@ -142,6 +175,6 @@ def calculate_regression_metrics(debugger, predicted, true_values):
 
 def calculate_regression_metrics_multitarget(debugger, predicted, true_values):
     results = []
-    for predicts, true_value in predicted, true_values:
+    for predicts, true_value in zip(predicted, true_values):
        results.append(calculate_regression_metrics(debugger, predicts, true_value))
     return results

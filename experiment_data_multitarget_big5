@@ -1,18 +1,18 @@
 {
-    "models_name" : "convo_carpet_deep",
-    "experiments_name" : "big5_as_regression", 
+    "models_name" : "convo_carpet_deep3_m5",
+    "experiments_name" : "big5_multitarget", 
     
-    "targets" : [["agreeableness"], ["openness"], ["conscientiousness"], ["extraversion"], ["neuroticism"]],
+    "targets" : [["agreeableness", "openness", "conscientiousness", "extraversion", "neuroticism"]],
     "prediction_type": "regression",
 
     "folds" : [0],
-    "run_identificator" : "big5_test2",
+    "run_identificator" : "big5_test1",
 
     "debug" : "False",
 
     "cuda_device" : 1,
     "use_GPU" : "True",
-    "random_state" : 1025,
+    "random_state" : 859,
 
     "output_directorys_location" : "/home/mbosnjak/PERO/",
     "results_import_location" : "None",
@@ -22,20 +22,20 @@
     
     "print_status_batch" : 100,
     "max_constant_f1" : 6,
-    "n_epochs" : 400,
+    "n_epochs" : 20,
 
     "decay_rate" : 0.9,
     "decay_epoch" : 100,
     
     "optimization_params" : {
-        "learning_rate" : [0.01, 0.09, 0.3],
+        "learning_rate" : [0.005, 0.0001, 0.00001, 0.000001, 0.0000001],
         "act_func" : ["sig"],
         "batch_size" : [64], 
-        "kernels_count" : [8],
+        "kernels_count" : [16],
         "sentences_count" : [2], 
-        "hidden_layers": [[8, 6, 4]],
-        "dropout" : [0.5], 
-        "alpha": [0.1978], 
+        "hidden_layers": [[16, 10, 4]],
+        "dropout" : [0], 
+        "alpha": [0], 
         "regularization_type" : ["None"]
     }
 

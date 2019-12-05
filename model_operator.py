@@ -24,20 +24,13 @@ def apply(debugger, model, loss_function, data_loader, regularization, alpha, cu
         for inputs, labels in data_loader:
             n_batch += 1
             minibatch_logits = model(inputs.to(device=cuda_device, dtype=to.float))
-            minibatch_loss = loss_calculator(debugger, minibatch_logits, labels, model.parameters(), loss_function, regularization, alpha)
+            minibatch_loss = model.loss_calculator(minibatch_logits, labels, loss_function, regularization, alpha)
             
             total_loss += minibatch_loss
             predicted.append(minibatch_logits)
             true_output.append(labels)
             
     return total_loss, predicted, true_output
-
-def loss_calculator(debugger, logits, labels, models_parameters, loss_function, regularization, alpha):
-    debugger.print(logits[0])
-    debugger.print (labels[0])
-    debugger.print(logits.cpu())
-    debugger.print(labels.cpu())
-    return loss_function(logits, labels) + regularization(models_parameters, alpha)
 
 class ModelOperator():
 
@@ -68,12 +61,6 @@ class ModelOperator():
         self.best_models_properties = None
         self.best_models_results = None
 
-    def models_loss(self, logits, labels):
-        self.debugger.print("Here we are")
-        self.debugger.print(logits)
-        self.debugger.print(labels)
-        return loss_calculator(self.debugger, logits, labels, self.model.parameters(), self.loss_function, self.regularization, self.alpha)
-   
     def train(self):
         self.best_models_results = None
         
@@ -97,7 +84,7 @@ class ModelOperator():
                 
                 logits = self.model(inputs.to(device=self.cuda_device, dtype=to.float))
                     
-                minibatch_loss = self.models_loss(logits, labels)
+                minibatch_loss = self.model.loss_calculator(logits, labels, self.loss_function, self.regularization, self.alpha)
                 total_loss += minibatch_loss
                 
                 minibatch_loss.backward()
