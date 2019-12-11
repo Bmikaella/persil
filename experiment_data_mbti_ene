@@ -2,11 +2,11 @@
     "models_name" : "convo_carpet_deep1",
     "experiments_name" : "mbti_final", 
     
-    "targets" : [["introverted"]],
+    "targets" : [["enneagram_type"]],
     "prediction_type": "classification",
 
     "folds" : [0, 1, 2, 3, 4],
-    "run_identificator" : "big5_test_intro9",
+    "run_identificator" : "big5_test_ene1",
 
     "debug" : "False",
 
@@ -16,7 +16,7 @@
 
     "output_directorys_location" : "/home/mbosnjak/PERO/",
     "results_import_location" : "None",
-    "balance_data" : "True",
+    "balance_data" : "False",
 
     "validation_set_percentage" : 0.2,
     

@@ -6,7 +6,7 @@ import pdb
 
 CONVO_CARPET_DEEP_NAME = 'convo_carpet_deep1'
 CONVO_CARPET_DEEP3_NAME = 'convo_carpet_deep3'
-CONVO_CARPET_DEEP5_M_NAME = 'convo_carpet_deep3_m5'
+CONVO_CARPET_DEEP2_M5_NAME = 'convo_carpet_deep2_m5'
 CONVO_CARPET_DEEP2_NAME = 'convo_carpet_deep2'
 
 KERNELS_COUNTS = 'kernels_count'
@@ -21,7 +21,7 @@ def get_model(debugger, models_name, targets_type, prediction_type, number_of_cl
     if (models_name == CONVO_CARPET_DEEP_NAME):
         return ConvoCarpetDeep1(debugger, prediction_type, number_of_classes, kernels_count=parameters[KERNELS_COUNTS], \
         sentences_count=parameters[SENTENCES_COUTS], hidden_layer_1=parameters[HIDDEN_LAYER1], act_func=parameters[ACTIVATION_FUNCTION], \
-        pieces_count=parameters[PIECESE_COUNT)
+        pieces_count=parameters[PIECESE_COUNT])
     elif(models_name == CONVO_CARPET_DEEP3_NAME):
         return ConvoCarpetDeep3(debugger, prediction_type, number_of_classes, kernels_count=parameters[KERNELS_COUNTS], \
         sentences_count=parameters[SENTENCES_COUTS], hidden_layers=parameters[HIDDEN_LAYERS], act_func=parameters[ACTIVATION_FUNCTION],
@@ -30,10 +30,10 @@ def get_model(debugger, models_name, targets_type, prediction_type, number_of_cl
         return ConvoCarpetDeep2(debugger, prediction_type, number_of_classes, kernels_count=parameters[KERNELS_COUNTS], \
         sentences_count=parameters[SENTENCES_COUTS], hidden_layers=parameters[HIDDEN_LAYERS], act_func=parameters[ACTIVATION_FUNCTION],
         dropout=parameters[DROPOUT], pieces_count=parameters[PIECESE_COUNT])
-    elif(models_name == CONVO_CARPET_DEEP5_M_NAME):
-        return ConvoCarpetDeep3Multitarget5(debugger, prediction_type, number_of_classes, kernels_count=parameters[KERNELS_COUNTS], \
+    elif(models_name == CONVO_CARPET_DEEP2_M5_NAME):
+        return ConvoCarpetDeep2Multitarget5(debugger, prediction_type, number_of_classes, kernels_count=parameters[KERNELS_COUNTS], \
         sentences_count=parameters[SENTENCES_COUTS], hidden_layers=parameters[HIDDEN_LAYERS], act_func=parameters[ACTIVATION_FUNCTION],
-        dropout=parameters[DROPOUT], pieces_count=parameters[PIECESE_COUNT)
+        dropout=parameters[DROPOUT], pieces_count=parameters[PIECESE_COUNT])
     raise Exception(f'{models_name} model is not implemented ')
 
 def get_activation_function(name_of_function):
@@ -177,11 +177,11 @@ class ConvoCarpetDeep2(nn.Module):
         return loss_function(logits, labels) + regularization(self.parameters(), alpha)
 
 
-class ConvoCarpetDeep3Multitarget5(nn.Module):
+class ConvoCarpetDeep2Multitarget5(nn.Module):
 
     def __init__ (self, debugger, prediction_type, number_of_classes, embedding_size=1024, kernels_count=64, sentences_count=2, \
-    hidden_layers=[10, 10, 10], act_func='sig', dropout=0.5, pieces_count=5):
-        super(ConvoCarpetDeep3Multitarget5, self).__init__()
+    hidden_layers=[10, 10], act_func='sig', dropout=0.5, pieces_count=5):
+        super(ConvoCarpetDeep2Multitarget5, self).__init__()
         self.debugger = debugger
 
         self.prediction_type = prediction_type
@@ -192,14 +192,13 @@ class ConvoCarpetDeep3Multitarget5(nn.Module):
 
         self.fc_layer1 = get_linear_layer(kernels_count*pieces_count, hidden_layers[0], act_func, dropout)
         self.fc_layer2 = get_linear_layer(hidden_layers[0], hidden_layers[1], act_func, dropout)
-        self.fc_layer3 = get_linear_layer(hidden_layers[1], hidden_layers[2], act_func, dropout)
 
         
-        self.fc_layer4 = get_linear_layer(hidden_layers[2], number_of_classes[0], act_func, dropout)
-        self.fc_layer5 = get_linear_layer(hidden_layers[2], number_of_classes[1], act_func, dropout)
-        self.fc_layer6 = get_linear_layer(hidden_layers[2], number_of_classes[2], act_func, dropout)
-        self.fc_layer7 = get_linear_layer(hidden_layers[2], number_of_classes[3], act_func, dropout)
-        self.fc_layer8 = get_linear_layer(hidden_layers[2], number_of_classes[4], act_func, dropout)
+        self.fc_layer4 = get_linear_layer(hidden_layers[1], number_of_classes[0], act_func, dropout)
+        self.fc_layer5 = get_linear_layer(hidden_layers[1], number_of_classes[1], act_func, dropout)
+        self.fc_layer6 = get_linear_layer(hidden_layers[1], number_of_classes[2], act_func, dropout)
+        self.fc_layer7 = get_linear_layer(hidden_layers[1], number_of_classes[3], act_func, dropout)
+        self.fc_layer8 = get_linear_layer(hidden_layers[1], number_of_classes[4], act_func, dropout)
 
         self.all_layers = [self.fc_layer4, self.fc_layer5, self.fc_layer6, self.fc_layer7, self.fc_layer8]
 
@@ -271,7 +270,7 @@ class ConvoCarpetDeep1(nn.Module):
         self.activation = get_activation_function(act_func)
         self.conv_layer = nn.Conv2d(1, kernels_count, [sentences_count, embedding_size])
         self.pool_layer = nn.AdaptiveMaxPool2d((1, None))
-        
+
         self.pieces_count = pieces_count
         self.fc_layer1 = nn.Linear(kernels_count*pieces_count, hidden_layer_1)
         self.fc_layer2 = nn.Linear(hidden_layer_1, number_of_classes)

@@ -1,5 +1,5 @@
 {
-    "models_name" : "convo_carpet_deep3_m5",
+    "models_name" : "convo_carpet_deep2_m5",
     "experiments_name" : "big5_multitarget", 
     
     "targets" : [["agreeableness", "openness", "conscientiousness", "extraversion", "neuroticism"]],
@@ -34,6 +34,7 @@
         "kernels_count" : [16],
         "sentences_count" : [2], 
         "hidden_layers": [[16, 10, 4]],
+        "pieces_count" : [6, 10, 20],
         "dropout" : [0], 
         "alpha": [0], 
         "regularization_type" : ["None"]

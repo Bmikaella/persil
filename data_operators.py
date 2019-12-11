@@ -218,7 +218,7 @@ class ModelPerformanceSaver:
     def get_all_column_unique_values(self, prediction_type, number_of_classes):
         if(prediction_type == CLASSIFICATION):
             if(number_of_classes > 2):
-                return self.MODELS_PREFORMANCE_COLUMNS_CLASSIFICATION_MULTICLASS + EPOCH
+                return self.MODELS_PREFORMANCE_COLUMNS_CLASSIFICATION_MULTICLASS + self.EPOCH
             return self.MODELS_PREFORMANCE_COLUMNS_CLASSIFICATION_BINARY
         elif(prediction_type == REGRESSION):
             return self.MODELS_PREFORMANCE_COLUMNS_REGRESSION
